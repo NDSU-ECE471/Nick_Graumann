@@ -66,6 +66,8 @@ USB_ClassInfo_CDC_Device_t VirtualSerial_CDC_Interface =
  * Only LPC18xx has this feature */
 #define CDC_TASK_SELECT	ECHO_CHARACTER_TASK
 
+const char* const DEBUG_CONSOLE_WELCOME_MSG = "USB Serial Console Demo - UART Debug Console\r\n";
+
 /** Main program entry point. This routine contains the overall program flow, including initial
  *  setup of all components and the main program loop.
  */
@@ -74,6 +76,8 @@ int main(void)
 	SetupHardware();
 	LEDs_SetAllLEDs(LEDMASK_USB_NOTREADY);
 	sei();
+
+	Serial_Send((uint8_t*)DEBUG_CONSOLE_WELCOME_MSG, strlen(DEBUG_CONSOLE_WELCOME_MSG), BLOCKING);
 
 	for (;;)
 	{
@@ -100,9 +104,7 @@ void SetupHardware(void)
   SystemInit();
 #endif
 	bsp_init();
-	LEDs_Init();
-	Buttons_Init();
-	Joystick_Init();
+	Serial_Init(9600, false);
 	USB_Init();
 
 #if defined(USB_DEVICE_ROM_DRIVER)
@@ -165,13 +167,13 @@ void CDC_Bridge_Task(void)
 /** Event handler for the library USB Connection event. */
 void EVENT_USB_Device_Connect(void)
 {
-	LEDs_SetAllLEDs(LEDMASK_USB_ENUMERATING);
+	
 }
 
 /** Event handler for the library USB Disconnection event. */
 void EVENT_USB_Device_Disconnect(void)
 {
-	LEDs_SetAllLEDs(LEDMASK_USB_NOTREADY);
+	
 }
 
 /** Event handler for the library USB Configuration Changed event. */
@@ -180,8 +182,6 @@ void EVENT_USB_Device_ConfigurationChanged(void)
 	bool ConfigSuccess = true;
 
 	ConfigSuccess &= CDC_Device_ConfigureEndpoints(&VirtualSerial_CDC_Interface);
-
-//	LEDs_SetAllLEDs(ConfigSuccess ? LEDMASK_USB_READY : LEDMASK_USB_ERROR);
 }
 
 /** Event handler for the library USB Control Request reception event. */

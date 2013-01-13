@@ -67,6 +67,16 @@ void Serial_Init(const uint32_t BaudRate, const bool DoubleSpeed)
 #endif
 }
 
+void Serial_Send(uint8_t* buffer, uint32_t size, TRANSFER_BLOCK_Type block_config)
+{
+	UART_Send(DEBUG_UART_PORT, (uint8_t*) buffer, size, block_config);
+}
+
+uint32_t Serial_Revc(uint8_t* buffer, uint32_t size, TRANSFER_BLOCK_Type block_config)
+{
+	return UART_Receive(DEBUG_UART_PORT, (uint8_t*) buffer, size, block_config);
+}
+
 void USB_Connect(void)
 {
 #ifdef __LPC17XX__

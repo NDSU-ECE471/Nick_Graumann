@@ -36,9 +36,9 @@
 
 #define LPC_TIMER0			LPC_TIM0
 
-#define DEBUG_UART_PORT		LPC_UART3
+#define DEBUG_UART_PORT		(LPC_UART_TypeDef*)LPC_UART1
 #define UART_FUNCNUM		2
-#define UART_PORTNUM		0
+#define UART_PORTNUM		2
 #define UART_TX_PINNUM		0
 #define UART_RX_PINNUM		1
 
