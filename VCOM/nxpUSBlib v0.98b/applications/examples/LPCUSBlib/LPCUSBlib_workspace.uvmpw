@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<ProjectWorkspace xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="project_mpw.xsd">
+
+  <SchemaVersion>1.0</SchemaVersion>
+
+  <Header>### uVision Project, (C) Keil Software</Header>
+
+  <WorkspaceName>WorkSpace</WorkspaceName>
+
+  <project>
+    <PathAndName>..\..\..\libraries\CDL\CDL.uvproj</PathAndName>
+  </project>
+
+  <project>
+    <PathAndName>..\..\..\libraries\BSP\BSP.uvproj</PathAndName>
+  </project>
+
+  <project>
+    <PathAndName>..\..\..\libraries\LPCUSBlib\LPCUSBlib.uvproj</PathAndName>
+  </project>
+
+  <project>
+    <PathAndName>.\Example_AudioInputDevice\Example_AudioInputDevice.uvproj</PathAndName>
+  </project>
+
+  <project>
+    <PathAndName>.\Example_AudioOutputDevice\Example_AudioOutputDevice.uvproj</PathAndName>
+  </project>
+
+  <project>
+    <PathAndName>.\Example_AudioOutputHost\Example_AudioOutputHost.uvproj</PathAndName>
+  </project>
+
+  <project>
+    <PathAndName>.\Example_GenericHIDDevice\Example_GenericHIDDevice.uvproj</PathAndName>
+  </project>
+
+  <project>
+    <PathAndName>.\Example_KeyboardDevice\Example_KeyboardDevice.uvproj</PathAndName>
+  </project>
+
+  <project>
+    <PathAndName>.\Example_KeyboardHost\Example_KeyboardHost.uvproj</PathAndName>
+  </project>
+
+  <project>
+    <PathAndName>.\Example_MassStorageDevice\Example_MassStorageDevice.uvproj</PathAndName>
+  </project>
+
+  <project>
+    <PathAndName>.\Example_MassStorageHost\Example_MassStorageHost.uvproj</PathAndName>
+  </project>
+
+  <project>
+    <PathAndName>.\Example_MouseDevice\Example_MouseDevice.uvproj</PathAndName>
+  </project>
+
+  <project>
+    <PathAndName>.\Example_VirtualSerial\Example_VirtualSerialDevice.uvproj</PathAndName>
+  </project>
+
+  <project>
+    <PathAndName>.\Example_KeyboardHostDevice\Example_KeyboardHostDevice.uvproj</PathAndName>
+    <NodeIsActive>1</NodeIsActive>
+  </project>
+
+</ProjectWorkspace>
