@@ -62,11 +62,18 @@ USB_ClassInfo_CDC_Device_t VirtualSerial_CDC_Interface =
  */
 //static FILE USBSerialStream;
 
-/** Select example task, currently lpc11Uxx and lpc17xx don't support for bridging task
- * Only LPC18xx has this feature */
-#define CDC_TASK_SELECT	ECHO_CHARACTER_TASK
-
 const char* const DEBUG_CONSOLE_WELCOME_MSG = "USB Serial Console Demo - UART Debug Console\r\n";
+const char* const DEBUG_CONSOLE_USB_CONNECT_MSG = "USB VCOM device connected\r\n";
+const char* const DEBUG_CONSOLE_USB_DISCONNECT_MSG = "USB VCOM device disconnected\r\n";
+
+typedef enum
+{
+	STATUS_NONE,
+	STATUS_CONNECTED,
+	STATUS_DISCONNECTED
+} DeviceStatus_T;
+
+DeviceStatus_T DeviceStatus = STATUS_NONE;
 
 /** Main program entry point. This routine contains the overall program flow, including initial
  *  setup of all components and the main program loop.
@@ -81,107 +88,68 @@ int main(void)
 
 	for (;;)
 	{
-#if defined(USB_DEVICE_ROM_DRIVER)
-		UsbdCdc_IO_Buffer_Sync_Task();
-#endif
+		HandleDeviceStatus();
 
-#if (CDC_TASK_SELECT==ECHO_CHARACTER_TASK)
 		EchoCharater();
-#else
-		CDC_Bridge_Task();
-#endif
-#if !defined(USB_DEVICE_ROM_DRIVER)
-		//CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
+
+		CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
 		USB_USBTask();
-#endif
 	}
 }
 
 /** Configures the board hardware and chip peripherals for the demo's functionality. */
 void SetupHardware(void)
 {
-#if defined (__CC_ARM)  || defined(__ICCARM__) // FIXME KEIL related
-  SystemInit();
-#endif
 	bsp_init();
 	Serial_Init(9600, false);
 	USB_Init();
 
-#if defined(USB_DEVICE_ROM_DRIVER)
-	UsbdCdc_Init();
-#endif
 	USB_Connect();
 }
 
-#if (CDC_TASK_SELECT==ECHO_CHARACTER_TASK)
-/** Checks for data input, reply back to the host. */
+void HandleDeviceStatus(void)
+{
+	if(DeviceStatus == STATUS_CONNECTED)
+	{
+		Serial_Send((uint8_t*)DEBUG_CONSOLE_USB_CONNECT_MSG, strlen(DEBUG_CONSOLE_USB_CONNECT_MSG), BLOCKING);
+		DeviceStatus = STATUS_NONE;
+	}
+	else if(DeviceStatus == STATUS_DISCONNECTED)
+	{
+		Serial_Send((uint8_t*)DEBUG_CONSOLE_USB_DISCONNECT_MSG, strlen(DEBUG_CONSOLE_USB_DISCONNECT_MSG), BLOCKING);
+		DeviceStatus = STATUS_NONE;
+	}
+}
+
 void EchoCharater(void)
 {
 	/* Echo back character */
 	uint8_t recv_byte[CDC_TXRX_EPSIZE];
-#if !defined(USB_DEVICE_ROM_DRIVER)
+
 	if(CDC_Device_BytesReceived(&VirtualSerial_CDC_Interface))
 	{
 		recv_byte[0] = CDC_Device_ReceiveByte(&VirtualSerial_CDC_Interface);
 		CDC_Device_SendData(&VirtualSerial_CDC_Interface, (char *)recv_byte, 1);
 	}
-#else
-	uint32_t recv_count;
-	recv_count = UsbdCdc_RecvData(recv_byte, CDC_TXRX_EPSIZE);
-	if(recv_count)
-		UsbdCdc_SendData(recv_byte, recv_count);
-#endif
-
 }
-
-#else
-/** USB-UART Bridge Task */
-void CDC_Bridge_Task(void)
-{
-	/* Echo back character */
-	uint8_t out_buff[CDC_TXRX_EPSIZE], in_buff[CDC_TXRX_EPSIZE];
-	uint32_t recv_count;
-#if !defined(USB_DEVICE_ROM_DRIVER)
-	recv_count = CDC_Device_BytesReceived(&VirtualSerial_CDC_Interface);
-	while(recv_count--)
-	{
-		out_buff[0] = CDC_Device_ReceiveByte(&VirtualSerial_CDC_Interface);
-		Serial_Send((uint8_t*) out_buff, 1, BLOCKING);
-	}
-
-	recv_count = Serial_Revc(in_buff, CDC_TXRX_EPSIZE, NONE_BLOCKING);
-	if(recv_count)
-		CDC_Device_SendData(&VirtualSerial_CDC_Interface, (char *)in_buff, recv_count);
-#else
-	recv_count = UsbdCdc_RecvData(out_buff, CDC_TXRX_EPSIZE);
-	if(recv_count)
-		Serial_Send((uint8_t*) out_buff, recv_count, BLOCKING);
-
-	recv_count = Serial_Revc(in_buff, CDC_TXRX_EPSIZE, NONE_BLOCKING);
-	if(recv_count)
-		UsbdCdc_SendData(in_buff, recv_count);
-#endif
-}
-#endif
 
 /** Event handler for the library USB Connection event. */
 void EVENT_USB_Device_Connect(void)
 {
-	
+	// Todo: Not sure why this event never triggers
+	DeviceStatus = STATUS_CONNECTED;
 }
 
 /** Event handler for the library USB Disconnection event. */
 void EVENT_USB_Device_Disconnect(void)
 {
-	
+	DeviceStatus = STATUS_DISCONNECTED;
 }
 
 /** Event handler for the library USB Configuration Changed event. */
 void EVENT_USB_Device_ConfigurationChanged(void)
 {
-	bool ConfigSuccess = true;
-
-	ConfigSuccess &= CDC_Device_ConfigureEndpoints(&VirtualSerial_CDC_Interface);
+	CDC_Device_ConfigureEndpoints(&VirtualSerial_CDC_Interface);
 }
 
 /** Event handler for the library USB Control Request reception event. */
@@ -190,18 +158,9 @@ void EVENT_USB_Device_ControlRequest(void)
 	CDC_Device_ProcessControlRequest(&VirtualSerial_CDC_Interface);
 }
 
-
-#if !defined(USB_DEVICE_ROM_DRIVER)
 void EVENT_CDC_Device_LineEncodingChanged(USB_ClassInfo_CDC_Device_t* const CDCInterfaceInfo)
 {
 	/*TODO: add LineEncoding processing here
 	 * this is just a simple statement, only Baud rate is set */
 	Serial_Init(CDCInterfaceInfo->State.LineEncoding.BaudRateBPS, false);
 }
-#else
-void EVENT_UsbdCdc_SetLineCode(CDC_LINE_CODING* line_coding)
-{
-	Serial_Init(VirtualSerial_CDC_Interface.State.LineEncoding.BaudRateBPS, false);
-}
-#endif
-

@@ -533,6 +533,14 @@ void DcdIrqHandler (uint8_t DeviceID)
 		}
 		if (SIEDeviceStatus & DEV_CON_CH)	                /* Connect change */
 		{
+			if (SIEDeviceStatus & DEV_CON)
+			{
+				EVENT_USB_Device_Connect();
+			}
+			else
+			{
+				EVENT_USB_Device_Disconnect();
+			}
 		}
 		if (SIEDeviceStatus & DEV_SUS_CH)                   /* Suspend/Resume */
 		{

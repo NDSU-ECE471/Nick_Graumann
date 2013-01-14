@@ -1,0 +1,6 @@
+.metadata/*
+*.d
+*.o
+*.mk
+*.a
+Makefile

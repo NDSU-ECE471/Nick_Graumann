@@ -80,6 +80,17 @@ uint32_t Serial_Revc(uint8_t* buffer, uint32_t size, TRANSFER_BLOCK_Type block_c
 void USB_Connect(void)
 {
 #ifdef __LPC17XX__
+	PINSEL_CFG_Type PinCfg;
+
+	// Setup USB Vbus pin for monitoring of connect status
+	// Without this the DCD won't allow us to reset (see the datasheet)
+	PinCfg.Portnum = USB_VBUS_GPIO_PORT_NUM;
+	PinCfg.Pinnum = USB_VBUS_GPIO_BIT_NUM;
+	PinCfg.Funcnum = PINSEL_FUNC_2; // VBUS function (input)
+	PinCfg.OpenDrain = PINSEL_PINMODE_NORMAL;
+	PinCfg.Pinmode = PINSEL_PINMODE_TRISTATE;
+	PINSEL_ConfigPin(&PinCfg);
+
 	GPIO_SetDir(USB_CONNECT_GPIO_PORT_NUM,(1<<USB_CONNECT_GPIO_BIT_NUM),1);				//output
 	GPIO_ClearValue(USB_CONNECT_GPIO_PORT_NUM,(1<<USB_CONNECT_GPIO_BIT_NUM));			//pull up D+
 #endif

@@ -59,6 +59,7 @@
 
 	/* Function Prototypes: */
 		void SetupHardware(void);
+		void HandleDeviceStatus(void);
 		void EchoCharater(void);
 		void CDC_Bridge_Task(void);
 		
