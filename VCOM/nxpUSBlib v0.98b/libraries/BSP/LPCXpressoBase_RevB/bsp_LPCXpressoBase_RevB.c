@@ -88,7 +88,7 @@ void USB_Connect(void)
 	PinCfg.Pinnum = USB_VBUS_GPIO_BIT_NUM;
 	PinCfg.Funcnum = PINSEL_FUNC_2; // VBUS function (input)
 	PinCfg.OpenDrain = PINSEL_PINMODE_NORMAL;
-	PinCfg.Pinmode = PINSEL_PINMODE_TRISTATE;
+	PinCfg.Pinmode = PINSEL_PINMODE_PULLDOWN;
 	PINSEL_ConfigPin(&PinCfg);
 
 	GPIO_SetDir(USB_CONNECT_GPIO_PORT_NUM,(1<<USB_CONNECT_GPIO_BIT_NUM),1);				//output
