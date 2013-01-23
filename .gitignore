@@ -1,6 +1,9 @@
 .metadata/*
+.settings/*
 *.d
 *.o
 *.mk
 *.a
+*.ld
+*.map
 Makefile
