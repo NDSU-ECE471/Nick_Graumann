@@ -3,7 +3,7 @@
 	<name>Lab1</name>
 	<comment></comment>
 	<projects>
-		<project>CMSISv2_LPC17xx</project>
+		<project>CMSISv2p00_LPC17xx</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>

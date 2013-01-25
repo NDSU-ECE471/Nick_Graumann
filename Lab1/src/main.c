@@ -3,11 +3,15 @@
 #include "type.h"
 
 #define SYSTICK_TIME_MS 10
-#define P1_19_to_P1_26 0x07F80000
+#define NUM_LEDS 8
+#define LED_PIN_NUM_BASE 19
+#define LED_PIN_NUM_HIGH 26
+#define LED_PINS_ALL ((0xFF<<19))
 #define BUTTON0_BIT ((1<<2))
 
 volatile uint32_t ticks = 0;
 uint8_t enable = TRUE;
+int8_t ledPos = 0;
 
 void SysTick_Handler(void)
 {
@@ -25,6 +29,39 @@ void EINT3_IRQHandler(void)
    }
 }
 
+void TIMER0_IRQHandler(void)
+{
+   if(LPC_TIM0->IR & 0x01)
+   {
+      LPC_TIM0->IR |= 0x01;
+
+      if(enable && ledPos <= 6)
+      {
+         LPC_GPIO1->FIOSET |= 1<<(LED_PIN_NUM_BASE+ledPos+1);
+      }
+
+      if(enable && ledPos >= 1)
+      {
+         LPC_GPIO1->FIOSET |= 1<<(LED_PIN_NUM_BASE+ledPos-1);
+      }
+   }
+
+   if(LPC_TIM0->IR & 0x02)
+   {
+      LPC_TIM0->IR |= 0x02;
+
+      if(enable && ledPos <= 6)
+      {
+         LPC_GPIO1->FIOCLR |= 1<<(LED_PIN_NUM_BASE+ledPos+1);
+      }
+
+      if(enable && ledPos >= 1)
+      {
+         LPC_GPIO1->FIOCLR |= 1<<(LED_PIN_NUM_BASE+ledPos-1);
+      }
+   }
+}
+
 int main (void)
 {
 	// Update system clock frequency
@@ -35,17 +72,31 @@ int main (void)
    // Systick has reload value of N-1 clock cycles
    SysTick->LOAD = (SystemCoreClock/1000)*SYSTICK_TIME_MS - 1;
 
-	// P1.19-P1.26 outputs
-	LPC_GPIO1->FIODIR |= P1_19_to_P1_26;
-	// P1.19-P1.26 off
-	LPC_GPIO1->FIOSET = P1_19_to_P1_26;
+	// LEDs outputs
+	LPC_GPIO1->FIODIR |= LED_PINS_ALL;
+	// LEDS off (active low)
+	LPC_GPIO1->FIOSET = LED_PINS_ALL;
 
 	// Enable falling edge interrupt for P0.2
 	LPC_GPIOINT->IO0IntEnF |= BUTTON0_BIT;
 	// Enable EINT3 interrupt (for GPIO interrupts)
-	NVIC->ISER[0] |= 1<<EINT3_IRQn;
+	//NVIC->ISER[0] |= 1<<EINT3_IRQn;
+	NVIC_EnableIRQ(EINT3_IRQn);
 
-	int8_t pos = 0, inc = 1;
+	// Enable Timer1, PCLKSEL0 already setup for CCLK/4
+	LPC_SC->PCONP |= 1<<1;
+	LPC_TIM0->TC = 0;
+	LPC_TIM0->PC = 0;
+	LPC_TIM0->TCR |= 1<<0;
+	LPC_TIM0->TCR |= (1<<1);
+	LPC_TIM0->TCR &= ~(1<<1);
+	// Interrupt on MR0, MR1, reset on MR1
+	LPC_TIM0->MCR |= 0x19;
+	LPC_TIM0->MR0 = 2000;
+	LPC_TIM0->MR1 = 25000;
+	NVIC_EnableIRQ(TIMER0_IRQn);
+
+	int8_t inc = 1;
 
 	while(1)
 	{
@@ -55,19 +106,19 @@ int main (void)
 
          if(enable)
          {
-            LPC_GPIO1->FIOSET |= 1<<(19 + pos);
+            LPC_GPIO1->FIOSET |= 1<<(LED_PIN_NUM_BASE + ledPos);
 
-            pos += inc;
-            if(pos == 0 || pos == 7)
+            ledPos += inc;
+            if(ledPos == 0 || ledPos == 7)
             {
                inc = -inc;
             }
 
-            LPC_GPIO1->FIOCLR |= 1<<(19 + pos);
+            LPC_GPIO1->FIOCLR |= 1<<(LED_PIN_NUM_BASE + ledPos);
          }
          else
          {
-            LPC_GPIO1->FIOSET = P1_19_to_P1_26;
+            LPC_GPIO1->FIOSET = LED_PINS_ALL;
          }
 	   }
    }
