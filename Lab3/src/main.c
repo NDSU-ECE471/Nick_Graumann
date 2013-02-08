@@ -63,10 +63,6 @@ int main (void)
 	drawString(10, 110, "P0.3: Reset");
 
    SysTick_Config((SystemCoreClock/1000)*SYSTICK_TIME_MS);
-   // Systick needs highest priority
-   SysTick->CTRL &= ~SysTick_CTRL_ENABLE_Msk;
-   NVIC_SetPriority(SysTick_IRQn, 0);
-   SysTick->CTRL |= SysTick_CTRL_ENABLE_Msk;
 
 	while(1)
 	{
