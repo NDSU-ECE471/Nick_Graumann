@@ -60,8 +60,6 @@ int main ()
 	// Update system clock frequency
 	SystemCoreClockUpdate();
 
-	LPC_GPIO1->FIODIR |= 1<<19;
-
 	lcd_init();
 	ClearScreenAndPrintHeader();
 
