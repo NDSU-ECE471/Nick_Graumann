@@ -29,12 +29,12 @@
 
 typedef struct
 {
-   // "Private" members which we shouldn't touch in appcode
+   // "Private" members
    bool receiving;
    uint8_t currentRxBit;
 
    // "Public" members
-   bool newData;
+   bool rxDataReady;
    uint8_t rxData;
 } SwUart;
 
@@ -42,7 +42,7 @@ volatile SwUart FtdiUart =
 {
       .receiving = false,
       .currentRxBit = 0,
-      .newData = true,
+      .rxDataReady = true,
       .rxData = 0
 };
 
@@ -76,9 +76,9 @@ int main ()
 
 	while(1)
 	{
-	   if(FtdiUart.newData)
+	   if(FtdiUart.rxDataReady)
 	   {
-	      FtdiUart.newData = false;
+	      FtdiUart.rxDataReady = false;
 
 	      // Ignore NULL, invalid characters
 	      if(FtdiUart.rxData != 0 && FtdiUart.rxData <= 0x7F)
@@ -216,7 +216,7 @@ void TIMER0_IRQHandler()
       {
          FtdiUart.receiving = true;
          FtdiUart.currentRxBit = 0;
-         FtdiUart.newData = false;
+         FtdiUart.rxDataReady = false;
          FtdiUart.rxData = 0;
 
          SetupTimer0(UART_BITTIME, true);
@@ -241,14 +241,14 @@ void TIMER0_IRQHandler()
             // Check for stop bit to set valid flag
             if(LPC_GPIO2->FIOPIN & UART_RX_PIN_BIT)
             {
-               FtdiUart.newData = true;
+               FtdiUart.rxDataReady = true;
             }
             else
             {
-               FtdiUart.newData = false;
+               FtdiUart.rxDataReady = false;
             }
 #else
-            FtdiUart.newData = true;
+            FtdiUart.rxDataReady = true;
 #endif
          }
       }
