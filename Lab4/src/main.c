@@ -22,6 +22,7 @@
 #define UART_BAUD       9600
 // Bittime = Timer clk/baud = 25000000/9600
 #define UART_BITTIME    2604
+#define UART_DATA_BITS  8
 #define UART_RX_PORT    2
 #define UART_RX_PIN     1
 #define UART_RX_PIN_BIT ((1<<UART_RX_PIN))
@@ -58,6 +59,8 @@ int main ()
 {
 	// Update system clock frequency
 	SystemCoreClockUpdate();
+
+	LPC_GPIO1->FIODIR |= 1<<19;
 
 	lcd_init();
 	ClearScreenAndPrintHeader();
@@ -223,22 +226,14 @@ void TIMER0_IRQHandler()
       }
       else
       {
-         if(LPC_GPIO2->FIOPIN & UART_RX_PIN_BIT)
-         {
-            FtdiUart.rxData |= 1<<FtdiUart.currentRxBit;
-         }
-
-         if(FtdiUart.currentRxBit < 7)
-         {
-            FtdiUart.currentRxBit++;
-         }
-         else
+         // Normally would subtract 1, but we want the stop bit too
+         if(FtdiUart.currentRxBit == UART_DATA_BITS)
          {
             DisableTimer0();
+
             FtdiUart.receiving = false;
-// todo: Problems with stop bit
-#if 0
-            // Check for stop bit to set valid flag
+
+            // Check for valid stop bit
             if(LPC_GPIO2->FIOPIN & UART_RX_PIN_BIT)
             {
                FtdiUart.rxDataReady = true;
@@ -247,9 +242,16 @@ void TIMER0_IRQHandler()
             {
                FtdiUart.rxDataReady = false;
             }
-#else
-            FtdiUart.rxDataReady = true;
-#endif
+         }
+
+         if(LPC_GPIO2->FIOPIN & UART_RX_PIN_BIT)
+         {
+            FtdiUart.rxData |= 1<<FtdiUart.currentRxBit;
+         }
+
+         if(FtdiUart.currentRxBit < UART_DATA_BITS)
+         {
+            FtdiUart.currentRxBit++;
          }
       }
    }
