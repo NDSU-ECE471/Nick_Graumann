@@ -1,0 +1,5 @@
+comments by nate: 
+
+alias: Lua
+
+Lab3: Incredible code! Sure you don't want to teach the class? Also, If you got any feedback let me know! Only issue, wheres type.h? I'm just defining it on my own each time I work with your labs. 
