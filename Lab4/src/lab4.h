@@ -6,7 +6,8 @@
 // Screen stuff
 //
 ///////////////////////////////////////////////////////////////////////////////
-#define TEXT_COLOR      ST7735_16_GREEN
+#define ST7735_16_GRAY  0x4208
+#define TEXT_COLOR      ST7735_16_GRAY
 #define BG_COLOR        ST7735_16_BLACK
 
 #define SCREEN_WIDTH    JDT1800_WIDTH
@@ -59,8 +60,8 @@ typedef struct
 // Sw SPI
 //
 ///////////////////////////////////////////////////////////////////////////////
-// Bittime = Timer clk/spi rate; run SPI at approx 1.5MHz (timer clk is 100MHz/4)
-#define LCD_SPI_BITTIME       16
+// Bittime = Timer clk/spi rate; run SPI at approx 2MHz (timer clk is 100MHz/4)
+#define LCD_SPI_BITTIME       12
 #define LCD_SPI_TX_TIMER      LPC_TIM1
 #define LCD_SPI_TX_TIMER_IRQ  TIMER1_IRQn
 #define LCD_SPI_TX_TIMER_PRI  2
