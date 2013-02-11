@@ -5,55 +5,23 @@
 #include "core_cm3.h"
 
 #include "lcd/lcd.h"
-
-// Screen stuff
-#define TEXT_COLOR      ST7735_16_GREEN
-#define BG_COLOR        ST7735_16_BLACK
-
-#define SCREEN_WIDTH    JDT1800_WIDTH
-#define SCREEN_HEIGHT   JDT1800_HEIGHT
-#define TEXT_WIDTH      6
-#define TEXT_HEIGHT     10
-#define LEFT_MARGIN     TEXT_WIDTH
-#define TOP_MARGIN      TEXT_HEIGHT
-// underscore character for cursor
-#define CURSOR_CHAR     0x5f
-
-#define UART_BAUD       9600
-// Bittime = Timer clk/baud = 25000000/9600
-#define UART_BITTIME    2604
-#define UART_DATA_BITS  8
-#define UART_RX_PORT    2
-#define UART_RX_PIN     1
-#define UART_RX_PIN_BIT ((1<<UART_RX_PIN))
-#define UART_BITIME
-
-typedef struct
-{
-   // "Private" members
-   bool receiving;
-   uint8_t currentRxBit;
-
-   // "Public" members
-   bool rxDataReady;
-   uint8_t rxData;
-} SwUart;
+#include "lab4.h"
 
 volatile SwUart FtdiUart =
 {
       .receiving = false,
       .currentRxBit = 0,
       .rxDataReady = true,
-      .rxData = 0
-};
+      .rxData = 0,
 
-#define TIMER_MATCH0_BIT ((1<<0))
+      .transmitting = false,
+      .currentTxBit = 0,
+      .txData = 0
+};
 
 void ClearScreenAndPrintHeader();
 void DrawCharacterOnScreen(uint8_t character, uint8_t *currXPtr, uint8_t *currYPtr);
-
-void SetupTimer0(uint32_t value, bool repeat);
-void DisableTimer0();
+void UartSetupTransmit(SwUart *uart, uint8_t data);
 
 int main ()
 {
@@ -63,14 +31,18 @@ int main ()
 	lcd_init();
 	ClearScreenAndPrintHeader();
 
-	// Enable falling edge interrupt for UART RX
+	// Enable falling edge interrupt for UART Rx
    LPC_GPIOINT->IO2IntEnF |= UART_RX_PIN_BIT;
    // Very high priority
-   NVIC_SetPriority(EINT3_IRQn, 0x01);
+   NVIC_SetPriority(EINT3_IRQn, 1);
    NVIC_ClearPendingIRQ(EINT3_IRQn);
    NVIC_EnableIRQ(EINT3_IRQn);
 
-   SetupTimer0(SystemCoreClock / 4 * 2, true);
+   // Uart Tx output, high when idle
+   LPC_GPIO2->FIODIR |= UART_TX_PIN_BIT;
+   LPC_GPIO2->FIOSET |= UART_TX_PIN_BIT;
+   // Uart uses timer2 which is disabled, enable it
+   LPC_SC->PCONP |= (1<<22);
 
    uint8_t currX = LEFT_MARGIN, currY = 2*TOP_MARGIN;
    drawChar(currX, currY, CURSOR_CHAR);
@@ -81,12 +53,13 @@ int main ()
 	   {
 	      FtdiUart.rxDataReady = false;
 
-	      // Ignore NULL, invalid characters
+	      // Don't draw NULL, invalid characters
 	      if(FtdiUart.rxData != 0 && FtdiUart.rxData <= 0x7F)
 	      {
 	         DrawCharacterOnScreen(FtdiUart.rxData, &currX, &currY);
 	      }
 
+	      UartSetupTransmit((SwUart *)&FtdiUart, FtdiUart.rxData);
 	   }
    }
 
@@ -163,47 +136,67 @@ void DrawCharacterOnScreen(uint8_t character, uint8_t *currX, uint8_t *currY)
    drawChar(*currX, *currY, CURSOR_CHAR);
 }
 
-void SetupTimer0(uint32_t value, bool repeat)
+void UartSetupTransmit(SwUart *uart, uint8_t data)
 {
-   // Timer mode
-   LPC_TIM0->CTCR = 0;
+   if(!uart)
+   {
+      return;
+   }
 
-   // Reset values
-   LPC_TIM0->TCR |= (1<<1);
-   LPC_TIM0->TCR &= ~(1<<1);
+   while(uart->transmitting);
 
-   // No prescale - increment every clock
-   LPC_TIM0->PR = 0;
+   uart->transmitting = true;
+   uart->currentTxBit = 0;
+   uart->txData = data;
 
-   // Setup match value
-   LPC_TIM0->MR0 = value;
+   // start bit
+   LPC_GPIO2->FIOCLR |= UART_TX_PIN_BIT;
+
+   SetupTimer(UART_TX_TIMER, UART_BITTIME, true);
+   EnableTimerIrq(UART_TX_TIMER_IRQ, UART_TX_TIMER_PRI);
+}
+
+void SetupTimer(LPC_TIM_TypeDef *timer, uint32_t value, bool repeat)
+{
+   if(!timer)
+   {
+      return;
+   }
+
+   timer->TCR &= ~0x01; // Disable timer
+   timer->CTCR = 0; // Timer mode
+
+   // Reset counter values
+   timer->TCR |= (1<<1);
+   timer->TCR &= ~(1<<1);
+
+   timer->PR = 0; // No prescale - increment every clock
+   timer->MR0 = value; // Setup match value
 
    if(repeat)
    {
       // Interrupt on match, reset on match
-      LPC_TIM0->MCR = 0x03;
+      timer->MCR = 0x03;
    }
    else
    {
       // Interrupt on match, stop on match
-      LPC_TIM0->MCR = 0x05;
+      timer->MCR = 0x05;
    }
 
-   // Clear all interrupts
-   LPC_TIM0->IR |= 0xFFFFFFFF;
-
-   // Enable timer
-   LPC_TIM0->TCR |= 0x01;
-
-   // Lower priority than the GPIO interrupt
-   NVIC_SetPriority(TIMER0_IRQn, 2);
-   // Enable interrupt for timer 0
-   NVIC_EnableIRQ(TIMER0_IRQn);
+   timer->IR |= 0xFFFFFFFF; // Clear all pending interrupts
+   timer->TCR |= 0x01; // Enable timer
 }
 
-void DisableTimer0()
+void EnableTimerIrq(IRQn_Type timerIrq, uint32_t priority)
 {
-   NVIC_DisableIRQ(TIMER0_IRQn);
+   NVIC_SetPriority(timerIrq, priority);
+   NVIC_EnableIRQ(timerIrq);
+}
+
+void DisableTimerIrq(IRQn_Type timerIrq)
+{
+   NVIC_DisableIRQ(timerIrq);
 }
 
 __attribute__ ((interrupt))
@@ -220,14 +213,15 @@ void TIMER0_IRQHandler()
          FtdiUart.rxDataReady = false;
          FtdiUart.rxData = 0;
 
-         SetupTimer0(UART_BITTIME, true);
+         SetupTimer(UART_RX_TIMER, UART_BITTIME, true);
+         EnableTimerIrq(UART_RX_TIMER_IRQ, UART_RX_TIMER_PRI);
       }
       else
       {
          // Normally would subtract 1, but we want the stop bit too
          if(FtdiUart.currentRxBit == UART_DATA_BITS)
          {
-            DisableTimer0();
+            DisableTimerIrq(UART_RX_TIMER_IRQ);
 
             FtdiUart.receiving = false;
 
@@ -256,6 +250,43 @@ void TIMER0_IRQHandler()
 }
 
 __attribute__ ((interrupt))
+void TIMER2_IRQHandler()
+{
+   if(LPC_TIM2->IR & TIMER_MATCH0_BIT)
+   {
+      LPC_TIM2->IR |= TIMER_MATCH0_BIT;
+
+      if(FtdiUart.transmitting)
+      {
+         if(FtdiUart.currentTxBit <= 7)
+         {
+            if(FtdiUart.txData & (1<<FtdiUart.currentTxBit))
+            {
+               LPC_GPIO2->FIOSET |= UART_TX_PIN_BIT;
+            }
+            else
+            {
+               LPC_GPIO2->FIOCLR |= UART_TX_PIN_BIT;
+            }
+
+            FtdiUart.currentTxBit++;
+         }
+         // Stop bit
+         else if(FtdiUart.currentTxBit == 8)
+         {
+            LPC_GPIO2->FIOSET |= UART_TX_PIN_BIT;
+            FtdiUart.currentTxBit++;
+         }
+         else
+         {
+            FtdiUart.transmitting = false;
+            DisableTimerIrq(UART_TX_TIMER_IRQ);
+         }
+      }
+   }
+}
+
+__attribute__ ((interrupt))
 void EINT3_IRQHandler()
 {
    if(LPC_GPIOINT->IO2IntStatF & UART_RX_PIN_BIT)
@@ -264,7 +295,8 @@ void EINT3_IRQHandler()
 
       if(!FtdiUart.receiving)
       {
-         SetupTimer0(UART_BITTIME / 2, false);
+         SetupTimer(UART_RX_TIMER, UART_BITTIME / 2, false);
+         EnableTimerIrq(UART_RX_TIMER_IRQ, UART_RX_TIMER_PRI);
       }
    }
 }

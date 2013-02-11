@@ -6,39 +6,10 @@
 #include "ssp.h"
 #include "ports.h"
 
+#include "../lab4.h"
+
 // Software-based SPI implementation
 // Just replaced function bodies, this doesn't actually use the SSP
-
-// Bittime = Timer clk/spi rate; run SPI at 1MHz (timer clk is 100MHz/4)
-#define SPI_BITTIME 25
-
-#define LCD_SPI_MOSI_PIN   (1<<9)
-#define LCD_SPI_SCLK_PIN   (1<<7)
-#define LCD_SPI_CS_PIN     (1<<18)
-
-#define TIMER_MATCH0_BIT ((1<<0))
-
-void DisableTimer1();
-
-typedef enum
-{
-   STATE_IDLE,
-   STATE_TX_CS_LOW,
-   STATE_TX_DATA,
-   STATE_TX_LAST_CLK,
-   STATE_TX_DATA_CLR,
-   STATE_TX_CS_HIGH
-} SwSPIState;
-
-typedef struct
-{
-   // "Public" members
-   uint8_t txData;
-   SwSPIState state;
-
-   // "Private" members
-   uint8_t currentTxBit;
-} SwSPI;
 
 volatile SwSPI LcdSPI =
 {
@@ -46,50 +17,6 @@ volatile SwSPI LcdSPI =
       .state = STATE_IDLE,
       .txData = 0
 };
-
-void SetupTimer1(uint32_t value, bool repeat)
-{
-   DisableTimer1();
-
-   // Timer mode
-   LPC_TIM1->CTCR = 0;
-
-   // Reset values
-   LPC_TIM1->TCR |= (1<<1);
-   LPC_TIM1->TCR &= ~(1<<1);
-
-   // No prescale - increment every clock
-   LPC_TIM1->PR = 0;
-
-   // Setup match value
-   LPC_TIM1->MR0 = value;
-
-   if(repeat)
-   {
-      // Interrupt on match, reset on match
-      LPC_TIM1->MCR = 0x03;
-   }
-   else
-   {
-      // Interrupt on match, stop on match
-      LPC_TIM1->MCR = 0x05;
-   }
-
-   // Clear all interrupts
-   LPC_TIM1->IR |= 0xFFFFFFFF;
-
-   // Enable timer
-   LPC_TIM1->TCR |= 0x01;
-
-   NVIC_SetPriority(TIMER1_IRQn, 2);
-   // Enable interrupt for timer 0
-   NVIC_EnableIRQ(TIMER1_IRQn);
-}
-
-void DisableTimer1()
-{
-   NVIC_DisableIRQ(TIMER1_IRQn);
-}
 
 __attribute__ ((interrupt))
 void TIMER1_IRQHandler()
@@ -104,7 +31,8 @@ void TIMER1_IRQHandler()
          break;
 
       case STATE_TX_CS_LOW:
-         SetupTimer1(SPI_BITTIME, true);
+         SetupTimer(LCD_SPI_TX_TIMER, LCD_SPI_BITTIME, true);
+         EnableTimerIrq(LCD_SPI_TX_TIMER_IRQ, LCD_SPI_TX_TIMER_PRI);
          LcdSPI.state = STATE_TX_DATA;
          break;
 
@@ -113,7 +41,7 @@ void TIMER1_IRQHandler()
          if(LPC_GPIO0->FIOPIN & LCD_SPI_SCLK_PIN || LcdSPI.currentTxBit == 7)
          {
             // Change data on falling edge so it's always 1/2 a cycle ahead of the clk
-            if(LcdSPI.txData & 1<<LcdSPI.currentTxBit)
+            if(LcdSPI.txData & (1<<LcdSPI.currentTxBit))
             {
                LPC_GPIO0->FIOSET |= LCD_SPI_MOSI_PIN;
             }
@@ -151,7 +79,7 @@ void TIMER1_IRQHandler()
          break;
 
       case STATE_TX_CS_HIGH:
-         DisableTimer1();
+         DisableTimerIrq(LCD_SPI_TX_TIMER_IRQ);
          LcdSPI.state = STATE_IDLE;
          LPC_GPIO1->FIOSET |= LCD_SPI_CS_PIN;
          break;
@@ -179,7 +107,8 @@ void SSP1Send(uint8_t buf)
 
    LPC_GPIO1->FIOCLR |= LCD_SPI_CS_PIN;
 
-   SetupTimer1(4*SPI_BITTIME, false);
+   SetupTimer(LCD_SPI_TX_TIMER, 4*LCD_SPI_BITTIME, false);
+   EnableTimerIrq(LCD_SPI_TX_TIMER_IRQ, LCD_SPI_TX_TIMER_PRI);
 
    LPC_GPIO0->FIOCLR |= LCD_SPI_SCLK_PIN;
 }
