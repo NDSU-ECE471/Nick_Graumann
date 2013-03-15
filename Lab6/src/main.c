@@ -1,8 +1,12 @@
+#include <stdbool.h>
 #include <stdio.h>
+#include <string.h>
+
 #include "LPC17xx.h"
 #include "FreeRTOS.h"
-#include "task.h"
 #include "queue.h"
+#include "semphr.h"
+#include "task.h"
 #include "lcd/lcd.h"
 
 // Gah, I absolutely hate not having these. So I made them :)
@@ -15,13 +19,7 @@ LPC_GPIO_TypeDef *LPC_GPIO[] =
    LPC_GPIO4
 };
 
-typedef struct
-{
-   uint8_t hours;
-   uint8_t minutes;
-   uint8_t seconds;
-   uint8_t tenMs;
-} Time_T;
+static portTASK_FUNCTION(ButtonTask, pvParameters);
 
 #define BUTTON_POLL_TICKS        10
 #define BUTTON_DEBOUNCE_TICKS    250
@@ -32,35 +30,50 @@ typedef struct
 #define BUTTON_RESET_PORT        0
 #define BUTTON_RESET_PIN         3
 
-#define BUTTON_STARTSTOP_TASK_STACK_SIZE   128
-#define BUTTON_STARTSTOP_TASK_PRIORITY     (tskIDLE_PRIORITY+2)
-static portTASK_FUNCTION(ButtonStartStopTask, pvParameters);
+#define BUTTON_TASK_STACK_SIZE  128
+#define BUTTON_TASK_PRIORITY    (tskIDLE_PRIORITY+2UL)
 
-#define BUTTON_RESET_TASK_STACK_SIZE   128
-#define BUTTON_RESET_TASK_PRIORITY     (tskIDLE_PRIORITY+2)
-static portTASK_FUNCTION(ButtonResetTask, pvParameters);
+#define TIME_TASK_POLL_TICKS              10
+#define TIME_TASK_STACK_SIZE              128
+#define TIME_TASK_PRIORITY                (tskIDLE_PRIORITY+3UL)
 
-#define TIME_TASK_POLL_TICKS     10
-#define TIME_TASK_STACK_SIZE     128
-#define TIME_TASK_PRIORITY       (tskIDLE_PRIORITY+3)
 static portTASK_FUNCTION(TimeTask, pvParameters);
 
-#define TEXT_COLOR   ST7735_16_BLUE
-#define BG_COLOR     ST7735_16_BLACK
+
+#define TEXT_COLOR               ST7735_16_BLUE
+#define BG_COLOR                 ST7735_16_BLACK
 
 #define LCD_TASK_UPDATE_TICKS    50
 #define LCD_TASK_STACK_SIZE      128
 #define LCD_TASK_PRIORITY        (tskIDLE_PRIORITY+1)
+
 static portTASK_FUNCTION(LcdTask, pvParameters);
 
 #define LCD_EVENT_QUEUE_SIZE     10
 xQueueHandle LcdEventQueue = NULL;
 
+
+#define LED_TASK_DELAY_TICKS     50
+#define LED_TASK_STACK_SIZE      128
+#define LED_TASK_PRIORITY        (tskIDLE_PRIORITY+1UL)
+
+#define NUM_LEDS                 8
+#define LED_PORT_NUM             1
+#define LED_PIN_NUM_BASE         19
+#define LED_PIN_NUM_HIGH         26
+#define LED_PINS_ALL             ((0xFF<<19))
+#define LED_ENABLE_BUTTON_PORT   0
+#define LED_ENABLE_BUTTON_PIN    5
+
+static portTASK_FUNCTION(LedTask, pvParameters);
+
+
 typedef enum
 {
    LCD_EVENT_TIME,
    LCD_EVENT_BUTTON_START_STOP,
-   LCD_EVENT_BUTTON_RESET
+   LCD_EVENT_BUTTON_RESET,
+   LCD_EVENT_LEDS
 } LcdEventType_E;
 
 typedef struct
@@ -69,63 +82,119 @@ typedef struct
 } LcdEvent_T;
 
 
+typedef struct
+{
+   LcdEventType_E eventType;
+   uint32_t gpioPort;
+   uint32_t gpioPin;
+} ButtonTaskData_T;
+
+
+typedef struct
+{
+   uint8_t hours;
+   uint8_t minutes;
+   uint8_t seconds;
+   uint8_t tenMs;
+} Time_T;
+
+#define TIME_MUTEX_TICK_TIMEOUT  5
+xSemaphoreHandle TimeMutex = NULL;
+Time_T time;
+
+
 typedef enum
 {
    STATE_STOPPED,
    STATE_RUNNING
 } WatchState_E;
 
-WatchState_E WatchState = STATE_RUNNING;
-Time_T time =
-{
-   .hours = 0,
-   .minutes = 0,
-   .seconds = 0,
-   .tenMs = 0
-};
+WatchState_E WatchState = STATE_STOPPED;
+bool enableLeds = true;
+
+
+bool Initialize();
+
 
 int main(void)
 {
    SystemCoreClockUpdate();
 
-   if(xTaskCreate(ButtonStartStopTask,
-                  (signed char *)"StartStop",
-                  BUTTON_STARTSTOP_TASK_STACK_SIZE,
-                  NULL,
-                  BUTTON_STARTSTOP_TASK_PRIORITY,
-                  NULL) &&
+   static ButtonTaskData_T startStopButtonData;
+   startStopButtonData.eventType = LCD_EVENT_BUTTON_START_STOP;
+   startStopButtonData.gpioPort = BUTTON_START_STOP_PORT;
+   startStopButtonData.gpioPin = BUTTON_START_STOP_PIN;
 
-      xTaskCreate(ButtonResetTask,
-                        (signed char *)"Reset",
-                        BUTTON_RESET_TASK_STACK_SIZE,
-                        NULL,
-                        BUTTON_RESET_TASK_PRIORITY,
-                        NULL) &&
+   xTaskCreate(ButtonTask,
+              (signed char *)"BtnStartStop",
+              BUTTON_TASK_STACK_SIZE,
+              &startStopButtonData,
+              BUTTON_TASK_PRIORITY,
+              NULL);
 
-      xTaskCreate(TimeTask,
-                  (signed char *)"TimeTask",
-                  TIME_TASK_STACK_SIZE,
-                  NULL,
-                  TIME_TASK_PRIORITY,
-                  NULL) &&
+   static ButtonTaskData_T resetButtonData;
+   resetButtonData.eventType = LCD_EVENT_BUTTON_RESET;
+   resetButtonData.gpioPort = BUTTON_RESET_PORT;
+   resetButtonData.gpioPin = BUTTON_RESET_PIN;
 
-      xTaskCreate(LcdTask,
-                  (signed char *)"LcdTask",
-                  LCD_TASK_STACK_SIZE,
-                  NULL,
-                  LCD_TASK_PRIORITY,
-                  NULL) &&
+   xTaskCreate(ButtonTask,
+               (signed char *)"BtnReset",
+               BUTTON_TASK_STACK_SIZE,
+               &resetButtonData,
+               BUTTON_TASK_PRIORITY,
+               NULL);
 
-      (LcdEventQueue = xQueueCreate(LCD_EVENT_QUEUE_SIZE, sizeof(LcdEvent_T))))
-   {
-      vTaskStartScheduler();
-   }
+   static ButtonTaskData_T ledButtonData;
+   ledButtonData.eventType = LCD_EVENT_LEDS;
+   ledButtonData.gpioPort = LED_ENABLE_BUTTON_PORT;
+   ledButtonData.gpioPin = LED_ENABLE_BUTTON_PIN;
+
+   xTaskCreate(ButtonTask,
+               (signed char *)"BtnLeds",
+               BUTTON_TASK_STACK_SIZE,
+               &ledButtonData,
+               BUTTON_TASK_PRIORITY,
+               NULL);
+
+   xTaskCreate(TimeTask,
+               (signed char *)"TimeTask",
+               TIME_TASK_STACK_SIZE,
+               NULL,
+               TIME_TASK_PRIORITY,
+               NULL);
+
+   xTaskCreate(LcdTask,
+               (signed char *)"LcdTask",
+               LCD_TASK_STACK_SIZE,
+               NULL,
+               LCD_TASK_PRIORITY,
+               NULL);
+
+   LcdEventQueue = xQueueCreate(LCD_EVENT_QUEUE_SIZE, sizeof(LcdEvent_T));
+
+   xTaskCreate(LedTask,
+               (signed char *)"LedTask",
+               LED_TASK_STACK_SIZE,
+               NULL,
+               LED_TASK_PRIORITY,
+               NULL);
+
+   // LEDs outputs
+   LPC_GPIO[LED_PORT_NUM]->FIODIR |= LED_PINS_ALL;
+   // LEDS off (active low)
+   LPC_GPIO[LED_PORT_NUM]->FIOSET = LED_PINS_ALL;
+
+   TimeMutex = xSemaphoreCreateMutex();
+   memset(&time, 0, sizeof(time));
+
+   vTaskStartScheduler();
 
    // Error trap
    while(1);
 }
 
 
+// VERY good idea to turn these on in FreeRTOSconfig.h
 void vApplicationStackOverflowHook()
 {
    while(1);
@@ -138,34 +207,22 @@ void vApplicationMallocFailedHook()
 }
 
 
-static portTASK_FUNCTION(ButtonStartStopTask, pvParameters)
+static portTASK_FUNCTION(ButtonTask, pvParameters)
 {
-   portTickType nextWakeTime = xTaskGetTickCount();
-   LcdEvent_T event;
-   event.type = LCD_EVENT_BUTTON_START_STOP;
-
-   while(1)
+   if(!pvParameters)
    {
-      if(!(LPC_GPIO[BUTTON_START_STOP_PORT]->FIOPIN & (1<<BUTTON_START_STOP_PIN)))
-      {
-         xQueueSendToBack(LcdEventQueue, &event, 0);
-         vTaskDelay(BUTTON_DEBOUNCE_TICKS);
-      }
-
-      vTaskDelayUntil(&nextWakeTime, BUTTON_POLL_TICKS);
+      vTaskDelete(NULL);
    }
-}
 
+   ButtonTaskData_T *taskData = (ButtonTaskData_T *)pvParameters;
 
-static portTASK_FUNCTION(ButtonResetTask, pvParameters)
-{
    portTickType nextWakeTime = xTaskGetTickCount();
    LcdEvent_T event;
-   event.type = LCD_EVENT_BUTTON_RESET;
+   event.type = taskData->eventType;
 
    while(1)
    {
-      if(!(LPC_GPIO[BUTTON_RESET_PORT]->FIOPIN & (1<<BUTTON_RESET_PIN)))
+      if(!(LPC_GPIO[taskData->gpioPort]->FIOPIN & (1<<taskData->gpioPin)))
       {
          xQueueSendToBack(LcdEventQueue, &event, 0);
          vTaskDelay(BUTTON_DEBOUNCE_TICKS);
@@ -184,23 +241,27 @@ static portTASK_FUNCTION(TimeTask, pvParameters)
 
    while(1)
    {
-      taskENTER_CRITICAL();
-      if(100 == ++time.tenMs)
+      // todo: need to add a timeout here?
+      if(xSemaphoreTake(TimeMutex, TIME_MUTEX_TICK_TIMEOUT))
       {
-         time.tenMs = 0;
-
-         if(60 == ++time.seconds)
+         if(WatchState == STATE_RUNNING && 100 == ++time.tenMs)
          {
-            time.seconds = 0;
+            time.tenMs = 0;
 
-            if(60 == ++time.minutes)
+            if(60 == ++time.seconds)
             {
-               time.minutes = 0;
-               time.hours++;
+               time.seconds = 0;
+
+               if(60 == ++time.minutes)
+               {
+                  time.minutes = 0;
+                  time.hours++;
+               }
             }
          }
+
+         xSemaphoreGive(TimeMutex);
       }
-      taskEXIT_CRITICAL();
 
       xQueueSendToBack(LcdEventQueue, &event, 0);
 
@@ -215,26 +276,94 @@ static portTASK_FUNCTION(LcdTask, pvParameters)
    fillScreen(BG_COLOR);
    setColor16(TEXT_COLOR);
    setBackgroundColor16(BG_COLOR);
+   drawString(10, 10, "-- Nick's Stopwatch --");
+   drawString(10, 90, "P0.2: Start/stop");
+   drawString(10, 100, "P0.3: Reset");
+   drawString(10, 110, "P0.5: Toggle LEDs");
 
    portTickType lastLcdUpdate = xTaskGetTickCount();
    char strBuf[12];
    LcdEvent_T event;
 
-   // Strange timing requirements in this lab...
    // LCD updates every 50ms but yet the task needs to receive data every 10ms.
    // In order to meet both, receive from the queue constantly (which should be at minimum every 10ms), and
    // manually check the tick count to see if an update is needed
    while(xQueueReceive(LcdEventQueue, &event, portMAX_DELAY))
    {
-      if(xTaskGetTickCount() - lastLcdUpdate > LCD_TASK_UPDATE_TICKS)
+      switch(event.type)
       {
-         snprintf(strBuf, 12, "%02u:%02u:%02u:%02u", time.hours,
-                                                     time.minutes,
-                                                     time.seconds,
-                                                     time.tenMs);
+      case LCD_EVENT_TIME:
+         if(xTaskGetTickCount() - lastLcdUpdate > LCD_TASK_UPDATE_TICKS &&
+            xSemaphoreTake(TimeMutex, TIME_MUTEX_TICK_TIMEOUT))
+         {
+            snprintf(strBuf, 12, "%02u:%02u:%02u:%02u", time.hours,
+                                                        time.minutes,
+                                                        time.seconds,
+                                                        time.tenMs);
 
-         drawString(10, 10, strBuf);
-         lastLcdUpdate = xTaskGetTickCount();
+            xSemaphoreGive(TimeMutex);
+
+            drawString(10, 30, strBuf);
+            lastLcdUpdate = xTaskGetTickCount();
+         }
+         break;
+
+      case LCD_EVENT_BUTTON_START_STOP:
+         if(WatchState == STATE_STOPPED)
+         {
+            WatchState = STATE_RUNNING;
+         }
+         else
+         {
+            WatchState = STATE_STOPPED;
+         }
+         break;
+
+      case LCD_EVENT_BUTTON_RESET:
+         if(xSemaphoreTake(TimeMutex, TIME_MUTEX_TICK_TIMEOUT))
+         {
+            time.hours = 0;
+            time.minutes = 0;
+            time.seconds = 0;
+            time.tenMs = 0;
+
+            xSemaphoreGive(TimeMutex);
+         }
+         break;
+
+      case LCD_EVENT_LEDS:
+         enableLeds = !enableLeds;
+         break;
       }
+   }
+}
+
+
+static portTASK_FUNCTION(LedTask, pvParameters)
+{
+   portTickType nextWakeTime = xTaskGetTickCount();
+   uint8_t ledPos = 0;
+   int8_t inc = 1;
+
+   while(1)
+   {
+      if(enableLeds)
+      {
+         LPC_GPIO[LED_PORT_NUM]->FIOSET |= 1<<(LED_PIN_NUM_BASE + ledPos);
+
+         ledPos += inc;
+         if(ledPos == 0 || ledPos == 7)
+         {
+            inc = -inc;
+         }
+
+         LPC_GPIO[LED_PORT_NUM]->FIOCLR |= 1<<(LED_PIN_NUM_BASE + ledPos);
+      }
+      else
+      {
+         LPC_GPIO[LED_PORT_NUM]->FIOSET = LED_PINS_ALL;
+      }
+
+      vTaskDelayUntil(&nextWakeTime, LED_TASK_DELAY_TICKS);
    }
 }
