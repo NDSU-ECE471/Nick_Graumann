@@ -54,7 +54,7 @@
 extern unsigned int SystemCoreClock;
 
 #define configUSE_PREEMPTION		1
-#define configUSE_IDLE_HOOK			0
+#define configUSE_IDLE_HOOK			1
 #define configMAX_PRIORITIES		( 5 )
 #define configUSE_TICK_HOOK			0
 #define configCPU_CLOCK_HZ			( ( unsigned long ) SystemCoreClock )
@@ -88,7 +88,7 @@ to exclude the API function. */
 #define INCLUDE_vTaskSuspend				1
 #define INCLUDE_vTaskDelayUntil				1
 #define INCLUDE_vTaskDelay					1
-#define INCLUDE_uxTaskGetStackHighWaterMark	0
+#define INCLUDE_uxTaskGetStackHighWaterMark	1
 
 /* Use the system definition, if there is one */
 #ifdef __NVIC_PRIO_BITS
