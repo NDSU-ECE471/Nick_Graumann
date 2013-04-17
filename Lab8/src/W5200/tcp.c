@@ -6,11 +6,7 @@
  */
 
 #include "tcp.h"
-#include "web_page.h"
-#include "string.h"
 
-#define tcp_data_buffer_size 	2000
-static uint8_t tcp_data_buffer[tcp_data_buffer_size];
 static uint16_t bytesReceived = 0;
 
 uint8_t tcp_socket_init(TCP_CONFIG *config)
@@ -40,7 +36,7 @@ uint8_t tcp_socket_init(TCP_CONFIG *config)
 	return 1;
 }
 
-uint8_t check_for_connections(TCP_CONFIG *config)
+uint8_t tcp_check_for_connections(TCP_CONFIG *config)
 {
 	if(!(getSn_SR(config->s) != SOCK_ESTABLISHED))
 	{
@@ -50,27 +46,32 @@ uint8_t check_for_connections(TCP_CONFIG *config)
 	return 0;
 }
 
-uint8_t process_request(TCP_CONFIG *config)
+uint8_t tcp_receive(TCP_CONFIG *config, char *data_buffer, size_t buf_size)
 {
-	uint16_t bytes_to_send =0;
 	uint8_t rets=0;
 
-	if(bytesReceived>tcp_data_buffer_size)
+	if(bytesReceived>buf_size)
 		return 0; // Content overflow
 
 	// Assuming GIT request, read and parse if you with to use urls for anything
-	recv_data_processing(config->s, tcp_data_buffer, bytesReceived); // Data from the GIT request
-
-	bytes_to_send = strlen((char *)website);
-	rets = send(config->s, website,bytes_to_send , 0); // Send Response with html
-	bytesReceived=0;
-
-	IINCHIP_WRITE(Sn_CR(config->s), Sn_CR_DISCON); 	// Shut down connection
-	while (IINCHIP_READ(Sn_CR(config->s)));			//
-	IINCHIP_WRITE(Sn_CR(config->s), Sn_CR_CLOSE);	//
-	while (IINCHIP_READ(Sn_CR(config->s)));			//
-	IINCHIP_WRITE(Sn_IR(config->s), 0xFF);			//
+	recv_data_processing(config->s, (uint8_t *)data_buffer, bytesReceived); // Data from the GIT request
 
 	return rets;
+}
+
+uint8_t tcp_send(TCP_CONFIG *config, const char *data_buffer, size_t buf_size)
+{
+   uint8_t rets=0;
+
+   rets = send(config->s, (uint8_t *)data_buffer, buf_size, 0); // Send Response with html
+   bytesReceived=0;
+
+   IINCHIP_WRITE(Sn_CR(config->s), Sn_CR_DISCON);  // Shut down connection
+   while (IINCHIP_READ(Sn_CR(config->s)));         //
+   IINCHIP_WRITE(Sn_CR(config->s), Sn_CR_CLOSE);   //
+   while (IINCHIP_READ(Sn_CR(config->s)));         //
+   IINCHIP_WRITE(Sn_IR(config->s), 0xFF);       //
+
+   return rets;
 }
 

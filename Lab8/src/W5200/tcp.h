@@ -28,7 +28,8 @@ typedef struct
 
 
 uint8_t tcp_socket_init(TCP_CONFIG *config);
-uint8_t process_request();
-uint8_t check_for_connections(TCP_CONFIG *config);
+uint8_t tcp_check_for_connections(TCP_CONFIG *config);
+uint8_t tcp_receive(TCP_CONFIG *config, char *data_buffer, size_t buf_size);
+uint8_t tcp_send(TCP_CONFIG *config, const char *data_buffer, size_t buf_size);
 
 #endif /* TCP_H_ */
