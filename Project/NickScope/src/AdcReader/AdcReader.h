@@ -1,7 +1,7 @@
 #ifndef __ADC_READER_H__
 #define __ADC_READER_H__
 
-#include <stdbool.h>
+#include "Types.h"
 
 #define ADC_READER_TASK_NAME        (signed char *)"AdcReader"
 #define ADC_READER_TASK_STACK       128

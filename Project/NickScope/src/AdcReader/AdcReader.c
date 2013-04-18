@@ -44,7 +44,7 @@ int32_t index=0;
 
 static portTASK_FUNCTION(AdcReaderTask, pvParameters)
 {
-   ScopeDisplayEvent_T scopeEvent;
+   ScopeDisplayEvent_T displayEvent;
    int32_t adcReading = -1;
    portTickType lastWakeTime = xTaskGetTickCount();
 
@@ -61,10 +61,10 @@ static portTASK_FUNCTION(AdcReaderTask, pvParameters)
 
       if(adcReading != -1)
       {
-         scopeEvent.type = SCOPE_DISPLAY_EVENT_UPDATE;
-         scopeEvent.adcReading = adcReading;
+         displayEvent.type = SCOPE_DISPLAY_EVENT_DRAW_TRACE;
+         displayEvent.adcReading = adcReading;
          //scopeEvent.adcReading = values[index++];
-         ScopeDisplayQueueEvent(&scopeEvent);
+         ScopeDisplayQueueEvent(&displayEvent);
       }
 
       ADC_StartCmd(LPC_ADC, ADC_START_NOW);

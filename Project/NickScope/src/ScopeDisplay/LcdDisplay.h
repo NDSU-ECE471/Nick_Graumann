@@ -23,6 +23,8 @@ typedef uint16_t LcdColor;
 
 void LcdDrawPixel(LcdCoord x, LcdCoord y, LcdColor color);
 
+void LcdDrawRectangle(LcdCoord x, LcdCoord y, LcdCoord width, LcdCoord height, LcdColor color);
+void LcdDrawHLine(LcdCoord x, LcdCoord y, LcdCoord width, LcdColor color);
 void LcdDrawVLine(LcdCoord x, LcdCoord y, LcdCoord height, LcdColor color);
 
 #endif //__LCD_DISPLAY_H__

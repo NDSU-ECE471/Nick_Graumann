@@ -43,6 +43,9 @@
 								<option id="gnu.c.compiler.option.preprocessor.def.symbols.1789202407" name="Defined symbols (-D)" superClass="gnu.c.compiler.option.preprocessor.def.symbols" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="__REDLIB__"/>
 									<listOptionValue builtIn="false" value="DEBUG"/>
+									<listOptionValue builtIn="false" value="vPortSVCHandler=SVC_Handler"/>
+									<listOptionValue builtIn="false" value="xPortPendSVHandler=PendSV_Handler"/>
+									<listOptionValue builtIn="false" value="xPortSysTickHandler=SysTick_Handler"/>
 								</option>
 								<inputType id="com.crt.advproject.compiler.input.83457396" superClass="com.crt.advproject.compiler.input"/>
 							</tool>
@@ -99,7 +102,7 @@
 								<option id="com.crt.advproject.gcc.thumb.2058406482" name="Thumb mode" superClass="com.crt.advproject.gcc.thumb" value="true" valueType="boolean"/>
 								<option id="com.crt.advproject.gcc.lib.debug.option.optimization.level.2045565619" name="Optimization Level" superClass="com.crt.advproject.gcc.lib.debug.option.optimization.level" value="gnu.c.optimization.level.optimize" valueType="enumerated"/>
 								<option id="com.crt.advproject.gcc.lib.debug.option.debugging.level.166354914" name="Debug Level" superClass="com.crt.advproject.gcc.lib.debug.option.debugging.level" value="gnu.c.debugging.level.default" valueType="enumerated"/>
-								<option id="gnu.c.compiler.option.preprocessor.def.symbols.2095937883" superClass="gnu.c.compiler.option.preprocessor.def.symbols" valueType="definedSymbols">
+								<option id="gnu.c.compiler.option.preprocessor.def.symbols.2095937883" name="Defined symbols (-D)" superClass="gnu.c.compiler.option.preprocessor.def.symbols" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="__REDLIB__"/>
 									<listOptionValue builtIn="false" value="NDEBUG"/>
 								</option>

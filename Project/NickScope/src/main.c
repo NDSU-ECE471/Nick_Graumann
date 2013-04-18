@@ -10,6 +10,7 @@
 
 #include "AdcReader/AdcReader.h"
 #include "ScopeDisplay/ScopeDisplay.h"
+#include "UserInterface/UserInterface.h"
 
 
 LPC_GPIO_TypeDef *LPC_GPIO[] =
@@ -27,7 +28,8 @@ int main(void)
    SystemCoreClockUpdate();
 
    if(AdcReaderInit() &&
-      ScopeDisplayInit())
+      ScopeDisplayInit() &&
+      UserInterfaceInit())
    {
       vTaskStartScheduler();
    }
