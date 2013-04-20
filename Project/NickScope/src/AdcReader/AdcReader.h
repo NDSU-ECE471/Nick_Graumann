@@ -9,6 +9,20 @@
 #define ADC_READER_TASK_DELAY_TICKS (10/portTICK_RATE_MS)
 
 
+typedef enum
+{
+   ADC_READER_STOP,
+   ADC_READER_READ_CONTINUOUS,
+   ADC_READER_READ_BURST
+} AdcReaderCommand_E;
+
+
+typedef struct
+{
+   AdcReaderCommand_E type;
+} AdcReaderCommand_T;
+
+
 bool AdcReaderInit();
 
 #endif //__ADC_READER_H__

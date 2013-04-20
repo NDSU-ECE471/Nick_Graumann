@@ -8,11 +8,14 @@
 #include "ScopeDisplay/ScopeDisplay.h"
 
 
-#define ADC_RATE     1000
+#define ADC_RATE     10000
 #define ADC_CHANNEL  0
 
 
+static void AdcInitialize();
 static portTASK_FUNCTION(AdcReaderTask, pvParameters);
+
+static AdcReaderCommand_E State = ADC_READER_READ_CONTINUOUS;
 
 
 bool AdcReaderInit()
@@ -32,14 +35,17 @@ bool AdcReaderInit()
    PinCfg.OpenDrain = PINSEL_PINMODE_NORMAL;
    PINSEL_ConfigPin(&PinCfg);
 
-   ADC_Init(LPC_ADC, ADC_RATE);
-   ADC_ChannelCmd(LPC_ADC, ADC_CHANNEL, ENABLE);
+   AdcInitialize();
 
    return retVal;
 }
 
-int32_t values[] = {0, 800, 1600, 2400, 3200, 4000, 3000, 2000, 1000, 0};
-int32_t index=0;
+
+static void AdcInitialize()
+{
+   ADC_Init(LPC_ADC, ADC_RATE);
+   ADC_ChannelCmd(LPC_ADC, ADC_CHANNEL, ENABLE);
+}
 
 
 static portTASK_FUNCTION(AdcReaderTask, pvParameters)
@@ -50,26 +56,33 @@ static portTASK_FUNCTION(AdcReaderTask, pvParameters)
 
    while(1)
    {
-      if(ADC_ChannelGetStatus(LPC_ADC, ADC_CHANNEL, ADC_DATA_DONE) == SET)
+      switch(State)
       {
-         adcReading = ADC_ChannelGetData(LPC_ADC, ADC_CHANNEL);
-      }
-      else
-      {
-         adcReading = -1;
-      }
+      case ADC_READER_READ_CONTINUOUS:
+         if(ADC_ChannelGetStatus(LPC_ADC, ADC_CHANNEL, ADC_DATA_DONE) == SET)
+         {
+            adcReading = ADC_ChannelGetData(LPC_ADC, ADC_CHANNEL);
+         }
+         else
+         {
+            adcReading = -1;
+            ADC_DeInit(LPC_ADC);
+            AdcInitialize();
+         }
 
-      if(adcReading != -1)
-      {
-         displayEvent.type = SCOPE_DISPLAY_EVENT_DRAW_TRACE;
-         displayEvent.adcReading = adcReading;
-         //scopeEvent.adcReading = values[index++];
-         ScopeDisplayQueueEvent(&displayEvent);
+         if(adcReading != -1)
+         {
+            displayEvent.type = SCOPE_DISPLAY_EVENT_UPDATE_TRACE;
+            displayEvent.adcReading = adcReading;
+            //scopeEvent.adcReading = values[index++];
+            ScopeDisplayQueueEvent(&displayEvent);
+         }
+
+         ADC_StartCmd(LPC_ADC, ADC_START_NOW);
+
+         vTaskDelayUntil(&lastWakeTime, ADC_READER_TASK_DELAY_TICKS);
+         break;
       }
-
-      ADC_StartCmd(LPC_ADC, ADC_START_NOW);
-
-      vTaskDelayUntil(&lastWakeTime, ADC_READER_TASK_DELAY_TICKS);
    }
 }
 

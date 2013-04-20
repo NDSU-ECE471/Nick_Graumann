@@ -13,16 +13,6 @@
 #include "UserInterface/UserInterface.h"
 
 
-LPC_GPIO_TypeDef *LPC_GPIO[] =
-{
-   LPC_GPIO0,
-   LPC_GPIO1,
-   LPC_GPIO2,
-   LPC_GPIO3,
-   LPC_GPIO4
-};
-
-
 int main(void)
 {
    SystemCoreClockUpdate();
