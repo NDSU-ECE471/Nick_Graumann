@@ -88,7 +88,7 @@ static void DrawBorder()
 }
 
 
-static void DrawTimebase(UiValue time, TimebaseUnits_E units)
+static void DrawTimebase(TimebaseValue_T time, TimebaseUnits_E units)
 {
    char buffer[16];
    switch(units)
@@ -118,7 +118,7 @@ static void DrawTimebase(UiValue time, TimebaseUnits_E units)
 }
 
 
-static void DrawVdiv(UiValue vdiv, V_PerDivUnits_E units)
+static void DrawVdiv(V_DivValue_T vdiv, V_DivUnits_E units)
 {
    char buffer[16];
    switch(units)

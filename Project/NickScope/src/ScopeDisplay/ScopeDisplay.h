@@ -64,14 +64,14 @@ typedef struct
 
       struct
       {
-         UiValue value;
+         TimebaseValue_T value;
          TimebaseUnits_E units;
       } TimebaseData;
 
       struct
       {
-         UiValue value;
-         V_PerDivUnits_E units;
+         V_DivValue_T value;
+         V_DivUnits_E units;
       } VdivData;
    };
 } ScopeDisplayEvent_T;

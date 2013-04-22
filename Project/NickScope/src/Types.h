@@ -8,17 +8,20 @@
 extern LPC_GPIO_TypeDef *LPC_GPIO[];
 
 typedef int32_t AdcCounts_T;
-
 typedef uint16_t UiValue;
 
 extern UiValue UI_VALUES[];
 extern size_t UI_VALUES_SIZE;
 
+typedef uint16_t V_DivValue_T;
+
 typedef enum
 {
    VDIV_mV,
    VDIV_V,
-} V_PerDivUnits_E;
+} V_DivUnits_E;
+
+typedef uint16_t TimebaseValue_T;
 
 typedef enum
 {
