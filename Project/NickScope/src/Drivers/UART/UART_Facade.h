@@ -25,8 +25,8 @@ typedef enum
 
 typedef enum
 {
-   UART_NON_BLOCKING = NONE_BLOCKING,
-   UART_BLOCKING = BLOCKING
+   UART_NON_BLOCKING,
+   UART_BLOCKING
 } UART_BlockType_E;
 
 UART_Error_E UART_Open(UART_Dev_E device, UART_BaudRate baud);
@@ -35,8 +35,5 @@ UART_Error_E UART_Close(UART_Dev_E device);
 // Non-DMA transmit and receive
 UART_Error_E UART_Rx(UART_Dev_E device, void *buf, uint32_t size, UART_BlockType_E shouldBlock);
 UART_Error_E UART_Tx(UART_Dev_E device, const void *buf, uint32_t size, UART_BlockType_E shouldBlock);
-
-UART_Error_E UART_RxDMA(UART_Dev_E device, void *buf, uint32_t size, UART_BlockType_E shouldBlock);
-UART_Error_E UART_TxDMA(UART_Dev_E device, const void *buf, uint32_t size, UART_BlockType_E shouldBlock);
 
 #endif //__UART_FACADE_H__

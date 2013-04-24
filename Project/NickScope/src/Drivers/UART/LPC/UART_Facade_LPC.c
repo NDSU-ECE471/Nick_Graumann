@@ -78,7 +78,7 @@ UART_Error_E UART_Rx(UART_Dev_E device, void *buf, uint32_t size, UART_BlockType
       }
 
       LPC_UART_TypeDef *devPtr = (LPC_UART_TypeDef *)LPC_UART1;
-      if(UART_Receive(devPtr, (uint8_t *)buf, size, shouldBlock) != size)
+      if(UART_Receive(devPtr, (uint8_t *)buf, size, shouldBlock == UART_NON_BLOCKING ? NONE_BLOCKING : BLOCKING) != size)
       {
          err = UART_XFER_FAILED;
       }
@@ -102,7 +102,7 @@ UART_Error_E UART_Tx(UART_Dev_E device, const void *buf, uint32_t size, UART_Blo
       }
 
       LPC_UART_TypeDef *devPtr = (LPC_UART_TypeDef *)LPC_UART1;
-      if(UART_Send(devPtr, (uint8_t *)buf, size, shouldBlock) != size)
+      if(UART_Send(devPtr, (uint8_t *)buf, size, shouldBlock) == UART_NON_BLOCKING ? NONE_BLOCKING : BLOCKING != size)
       {
          err = UART_XFER_FAILED;
       }

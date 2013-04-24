@@ -7,6 +7,8 @@
 #include "AdcReader.h"
 #include "ScopeDisplay/ScopeDisplay.h"
 
+#include "Drivers/SPI/LPC/SSP_LPC.h"
+
 
 #define ADC_RATE     10000
 #define ADC_CHANNEL  0
@@ -26,7 +28,7 @@ bool AdcReaderInit()
                              NULL,
                              ADC_READER_TASK_PRIORITY,
                              NULL);
-
+#if 0
    PINSEL_CFG_Type PinCfg;
    PinCfg.Portnum = 0;
    PinCfg.Pinnum = 23;
@@ -36,6 +38,9 @@ bool AdcReaderInit()
    PINSEL_ConfigPin(&PinCfg);
 
    AdcInitialize();
+#endif
+
+   SSP0_Enable();
 
    return retVal;
 }
@@ -59,6 +64,7 @@ static portTASK_FUNCTION(AdcReaderTask, pvParameters)
       switch(State)
       {
       case ADC_READER_READ_CONTINUOUS:
+#if 0
          if(ADC_ChannelGetStatus(LPC_ADC, ADC_CHANNEL, ADC_DATA_DONE) == SET)
          {
             adcReading = ADC_ChannelGetData(LPC_ADC, ADC_CHANNEL);
@@ -71,14 +77,19 @@ static portTASK_FUNCTION(AdcReaderTask, pvParameters)
          }
 
          if(adcReading != -1)
+#endif
          {
+            uint16_t buf;
+            SSP0_Receive(&buf);
+            adcReading = (int32_t)((buf >> 6) & 0xFF);
+
             displayEvent.type = SCOPE_DISPLAY_EVENT_UPDATE_TRACE;
             displayEvent.adcReading = adcReading;
             //scopeEvent.adcReading = values[index++];
             ScopeDisplayQueueEvent(&displayEvent);
          }
 
-         ADC_StartCmd(LPC_ADC, ADC_START_NOW);
+         //ADC_StartCmd(LPC_ADC, ADC_START_NOW);
 
          vTaskDelayUntil(&lastWakeTime, ADC_READER_TASK_DELAY_TICKS);
          break;

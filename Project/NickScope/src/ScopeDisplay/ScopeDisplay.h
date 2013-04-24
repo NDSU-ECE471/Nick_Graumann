@@ -42,7 +42,7 @@
 
 
 // todo: move me
-#define ADC_MAX_COUNTS           4095
+#define ADC_MAX_COUNTS           255
 
 
 typedef enum
