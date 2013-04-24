@@ -28,7 +28,7 @@ bool AdcReaderInit()
                              NULL,
                              ADC_READER_TASK_PRIORITY,
                              NULL);
-#if 0
+#ifdef USE_INTERNAL_ADC
    PINSEL_CFG_Type PinCfg;
    PinCfg.Portnum = 0;
    PinCfg.Pinnum = 23;
@@ -38,9 +38,9 @@ bool AdcReaderInit()
    PINSEL_ConfigPin(&PinCfg);
 
    AdcInitialize();
-#endif
-
+#else
    SSP0_Enable();
+#endif
 
    return retVal;
 }
@@ -56,6 +56,7 @@ static void AdcInitialize()
 static portTASK_FUNCTION(AdcReaderTask, pvParameters)
 {
    ScopeDisplayEvent_T displayEvent;
+   uint16_t buf;
    int32_t adcReading = -1;
    portTickType lastWakeTime = xTaskGetTickCount();
 
@@ -64,7 +65,7 @@ static portTASK_FUNCTION(AdcReaderTask, pvParameters)
       switch(State)
       {
       case ADC_READER_READ_CONTINUOUS:
-#if 0
+#ifdef USE_INTERNAL_ADC
          if(ADC_ChannelGetStatus(LPC_ADC, ADC_CHANNEL, ADC_DATA_DONE) == SET)
          {
             adcReading = ADC_ChannelGetData(LPC_ADC, ADC_CHANNEL);
@@ -76,16 +77,16 @@ static portTASK_FUNCTION(AdcReaderTask, pvParameters)
             AdcInitialize();
          }
 
-         if(adcReading != -1)
-#endif
-         {
-            uint16_t buf;
-            SSP0_Receive(&buf);
-            adcReading = (int32_t)((buf >> 6) & 0xFF);
 
+#else
+         SSP0_Receive(&buf);
+         adcReading = (int32_t)((buf >> 6) & 0xFF);
+#endif
+
+         if(adcReading != -1)
+         {
             displayEvent.type = SCOPE_DISPLAY_EVENT_UPDATE_TRACE;
             displayEvent.adcReading = adcReading;
-            //scopeEvent.adcReading = values[index++];
             ScopeDisplayQueueEvent(&displayEvent);
          }
 
