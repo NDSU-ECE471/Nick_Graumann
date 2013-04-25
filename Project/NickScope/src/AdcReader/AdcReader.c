@@ -7,7 +7,7 @@
 #include "AdcReader.h"
 #include "ScopeDisplay/ScopeDisplay.h"
 
-#include "Drivers/SPI/LPC/SSP_LPC.h"
+#include "Drivers/SPI/SPI_Facade.h"
 
 
 #define ADC_RATE     10000
@@ -39,7 +39,7 @@ bool AdcReaderInit()
 
    AdcInitialize();
 #else
-   SSP0_Enable();
+   SPI_Init(SPI_0);
 #endif
 
    return retVal;
@@ -79,7 +79,7 @@ static portTASK_FUNCTION(AdcReaderTask, pvParameters)
 
 
 #else
-         SSP0_Receive(&buf);
+         SPI_MultiByteTransaction(SPI_0, NULL, &buf, sizeof(buf));
          adcReading = (int32_t)((buf >> 6) & 0xFF);
 #endif
 

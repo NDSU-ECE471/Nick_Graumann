@@ -1,0 +1,17 @@
+#ifndef __CLOCKS_LPC_H__
+#define __CLOCKS_LPC_H__
+
+#include "../ClocksFacade.h"
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// Public Functions
+//
+///////////////////////////////////////////////////////////////////////////////
+ClocksErr_E LPC_InitClocks();
+ClockRate_T LPC_GetCoreClock();
+ClocksErr_E LPC_SetupPLL0(ClockRate_T rate);
+
+
+#endif //__CLOCKS_LPC_H__
