@@ -45,7 +45,7 @@ bool ConsoleInit()
 static portTASK_FUNCTION(ConsoleTxTask, pvParameters)
 {
    char buf[16];
-   uint16_t reading;
+   uint16_t reading = 0;;
    while(1)
    {
       //SSP0_Receive(&reading);

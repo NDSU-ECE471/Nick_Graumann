@@ -24,11 +24,11 @@ typedef enum
    SPI_XFER_FAILED,
    SPI_INVALID_DEVICE,
    SPI_INVALID_PARAMETER,
-   SPI_NOT_INITIALIZED
+   SPI_NOT_INITIALIZED,
+   SPI_CLK_FAILED,
+   SPI_CLK_UNSUPPORTED,
+   SPI_DMA_SETUP_FAILED
 } SPI_Error_E;
-
-
-typedef uint32_t SPI_ClkRate_T;
 
 
 // Clock idle priority
@@ -49,27 +49,43 @@ typedef enum
 
 ///////////////////////////////////////////////////////////////////////////////
 //
+// Types
+//
+///////////////////////////////////////////////////////////////////////////////
+typedef uint32_t SPI_ClkDiv_T;
+typedef void (*SPI_Callback_T)(SPI_Error_E, SPI_Dev_E, const void *, void *, size_t);
+
+///////////////////////////////////////////////////////////////////////////////
+//
 // Initializes the specified SPI interface
 //
 ///////////////////////////////////////////////////////////////////////////////
-SPI_Error_E SPI_Init(SPI_Dev_E device);
+SPI_Error_E SPI_Init(SPI_Dev_E device, SPI_ClkDiv_T pClkDiv, SPI_ClkDiv_T busClkDiv, SPI_ClkPolarity_E clkPol, SPI_ClkPhase_E clkPhase, size_t xferSizeBits);
 
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// Changes an interface's configuration. The interface should be initialized.
+// Initializes the DMA interface for the SPI device
 //
 ///////////////////////////////////////////////////////////////////////////////
-SPI_Error_E SPI_Config(SPI_Dev_E device, SPI_ClkRate_T clkRate, SPI_ClkPolarity_E clkPol, SPI_ClkPhase_E clkPhase);
+SPI_Error_E SPI_DMA_Init(SPI_Dev_E device);
 
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// Multiple-byte (non-DMA) transaction, split up based on the transfer size configured
-// when the peripheral was initialized. Size should be a multiple of that size.
+// Single (non-DMA) transaction. The source and destination should be able to hold
+// at least the number of bits of each transaction.
 //
 ///////////////////////////////////////////////////////////////////////////////
-SPI_Error_E SPI_MultiByteTransaction(SPI_Dev_E device, void *src, void *dest, size_t size);
+SPI_Error_E SPI_SingleTransaction(SPI_Dev_E device, const void *src, void *dest);
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+//
+//
+///////////////////////////////////////////////////////////////////////////////
+SPI_Error_E SPI_BeginDMA_Transaction(SPI_Dev_E device, const void *src, void *dest, size_t size, SPI_Callback_T callback);
 
 
 #endif //__SPI_FACADE_H__
