@@ -344,8 +344,8 @@ SPI_Error_E LPC_SSP0_DMA_Transaction(const void *src, void *dest, size_t size, S
          volatile void *destAddr = dest ? dest : &Trash;
          dmaErr = LPC_DMA_InitChannel(rxChan,
                                       (DMA_Address_T)&LPC_SSP0->DR, (DMA_Address_T)destAddr,
-                                      DMA_PERIPH_SPI0, DMA_PERIPH_MEMORY, 1,
-                                      DMA_BURST_SIZE_1, DMA_BURST_SIZE_1,
+                                      DMA_PERIPH_SPI0, DMA_PERIPH_MEMORY, size,
+                                      DMA_BURST_SIZE_256, DMA_BURST_SIZE_256,
                                       DMA_XFER_WIDTH_16, DMA_XFER_WIDTH_16,
                                       false, incDest);
          if(DMA_SUCCESS != dmaErr)
@@ -353,9 +353,7 @@ SPI_Error_E LPC_SSP0_DMA_Transaction(const void *src, void *dest, size_t size, S
             break;
          }
 
-         //todo: cleanup numbers in this area
-         //dmaErr = LPC_DMA_FindFreeChannel(&txChan);
-         txChan = 1;
+         dmaErr = LPC_DMA_FindFreeChannel(&txChan);
          if(DMA_SUCCESS != dmaErr)
          {
             break;
@@ -365,8 +363,8 @@ SPI_Error_E LPC_SSP0_DMA_Transaction(const void *src, void *dest, size_t size, S
          volatile const void *srcAddr = src ? src : &Dummy;
          dmaErr = LPC_DMA_InitChannel(txChan,
                                       (DMA_Address_T)srcAddr, (DMA_Address_T)&LPC_SSP0->DR,
-                                      DMA_PERIPH_MEMORY, DMA_PERIPH_SPI0, 1,
-                                      DMA_BURST_SIZE_1, DMA_BURST_SIZE_1,
+                                      DMA_PERIPH_MEMORY, DMA_PERIPH_SPI0, size,
+                                      DMA_BURST_SIZE_256, DMA_BURST_SIZE_256,
                                       DMA_XFER_WIDTH_16, DMA_XFER_WIDTH_16,
                                       incSrc, false);
          if(DMA_SUCCESS != dmaErr)
@@ -374,13 +372,13 @@ SPI_Error_E LPC_SSP0_DMA_Transaction(const void *src, void *dest, size_t size, S
             break;
          }
 
-         dmaErr = LPC_DMA_BeginTransfer(rxChan);
+         dmaErr = LPC_DMA_BeginTransfer(txChan);
          if(DMA_SUCCESS != dmaErr)
          {
             break;
          }
 
-         dmaErr = LPC_DMA_BeginTransfer(txChan);
+         dmaErr = LPC_DMA_BeginTransfer(rxChan);
          if(DMA_SUCCESS != dmaErr)
          {
             break;

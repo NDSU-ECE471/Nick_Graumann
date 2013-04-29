@@ -70,12 +70,12 @@ static const uint8_t DMA_XferWidthBits[] =
 
 static const uint8_t DMA_PeripheralSrcBits[] =
 {
-   [DMA_PERIPH_SPI0]  = 0x00,
+   [DMA_PERIPH_SPI0]  = 0x01,
 };
 
 static const uint8_t DMA_PeripheralDestBits[] =
 {
-   [DMA_PERIPH_SPI0]  = 0x01,
+   [DMA_PERIPH_SPI0]  = 0x00,
 };
 
 #define DMA_TC_IRQ_BIT     (1<<31)
@@ -189,7 +189,7 @@ DMA_Error_E LPC_DMA_InitChannel(DMA_Channel_T channel,
          LPC_GPDMACH[channel]->DMACCSrcAddr = srcAddr;
          LPC_GPDMACH[channel]->DMACCDestAddr = destAddr;
 
-         // No next linked-list item
+         // No linked-list
          LPC_GPDMACH[channel]->DMACCLLI = (uint32_t)NULL;
 
          // Set up control register (burst size, width, etc..)
@@ -198,16 +198,9 @@ DMA_Error_E LPC_DMA_InitChannel(DMA_Channel_T channel,
                                               (DMA_BurstBits[destBurstSize]<<DMA_DEST_BURST_OFFSET) |
                                               (DMA_XferWidthBits[srcWidth]<<DMA_SRC_WIDTH_OFFSET) |
                                               (DMA_XferWidthBits[destWidth]<<DMA_DEST_WIDTH_OFFSET) |
+                                              (incSrcAddr ? DMA_DEST_INC_BIT : 0) |
+                                              (incDestAddr ? DMA_DEST_INC_BIT : 0) |
                                               DMA_TC_IRQ_BIT;
-
-         if(incSrcAddr)
-         {
-            LPC_GPDMACH[channel]->DMACCControl |= DMA_SRC_INC_BIT;
-         }
-         if(incDestAddr)
-         {
-            LPC_GPDMACH[channel]->DMACCControl |= DMA_DEST_INC_BIT;
-         }
 
          // Setup peripherals, they were already verified above. The DMA controller needs to know what type of peripheral
          // the source and destination addresses represent.
@@ -264,11 +257,8 @@ DMA_Error_E LPC_DMA_BeginTransfer(DMA_Channel_T channel)
    }
    else
    {
-      // Enable error and terminal count interrupts
-      LPC_GPDMACH[channel]->DMACCConfig |= DMA_ERROR_INT_BIT|DMA_TC_INT_BIT;
-
-      // Enable the DMA channel
-      LPC_GPDMACH[channel]->DMACCConfig |= DMA_CONFIG_EN_BIT;
+      // Enable error and terminal count interrupts, enable channel
+      LPC_GPDMACH[channel]->DMACCConfig |= DMA_ERROR_INT_BIT|DMA_TC_INT_BIT|DMA_CONFIG_EN_BIT;
    }
 
    return err;
@@ -292,7 +282,7 @@ DMA_Error_E LPC_DMA_FindFreeChannel(DMA_Channel_T *channel)
    {
       for(DMA_Channel_T ch=0; ch<LPC_DMA_NUM_CHANNELS; ch++)
       {
-         if(!(LPC_GPDMA->DMACEnbldChns & (1<<ch)))
+         if(!DMA_ChannelInitialized[ch])
          {
             err = DMA_SUCCESS;
             *channel = ch;
@@ -314,8 +304,6 @@ void DMA_IRQHandler(void)
 {
    uint32_t regTCStat = LPC_GPDMA->DMACIntTCStat;
    uint32_t regErrStat = LPC_GPDMA->DMACIntErrStat;
-
-   while(1);
 
    // Clear DMA interrupts
    LPC_GPDMA->DMACIntTCClear = regTCStat;

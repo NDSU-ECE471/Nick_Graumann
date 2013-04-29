@@ -1,6 +1,8 @@
+#include <string.h>
+
 #ifdef USE_INTERNAL_ADC
-#include "lpc17xx_adc.h"
-#include "lpc17xx_pinsel.h"
+   #include "lpc17xx_adc.h"
+   #include "lpc17xx_pinsel.h"
 #endif
 #include <cr_section_macros.h>
 
@@ -24,7 +26,7 @@ static void AdcInitialize()
 #else
    #define SPI_ADC_DEV        SPI_0
    #define SPI_ADC_PCLK_DIV   1
-   #define SPI_ADC_BUS_DIV    4
+   #define SPI_ADC_BUS_DIV    2
    #define SPI_ADC_BUS_POL    SPI_CLK_POLARITY_HIGH
    #define SPI_ADC_BUS_PHASE  SPI_PHASE_FIRST_EDGE
    #define SPI_ADC_XFER_SIZE  16
@@ -32,7 +34,7 @@ static void AdcInitialize()
    #define SPI_ADC_BIT_MASK   0xFF
 
 
-volatile static uint16_t SampleBuffer[8192] __BSS(RamAHB32);
+volatile static uint16_t SampleBuffer[8192] __BSS(RamAHB32) __attribute__((aligned (256)));
 #endif
 
 static portTASK_FUNCTION(AdcReaderTask, pvParameters);
@@ -73,7 +75,7 @@ bool AdcReaderInit()
 
    SPI_DMA_Init(SPI_ADC_DEV);
 
-   memset(SampleBuffer, 0, sizeof(SampleBuffer));
+   memset((void *)SampleBuffer, 0, sizeof(SampleBuffer));
 #endif
 
    return retVal;
@@ -83,7 +85,6 @@ bool AdcReaderInit()
 static portTASK_FUNCTION(AdcReaderTask, pvParameters)
 {
    ScopeDisplayEvent_T displayEvent;
-   uint16_t buf;
    int32_t adcReading = -1;
    portTickType lastWakeTime = xTaskGetTickCount();
 
@@ -109,10 +110,10 @@ static portTASK_FUNCTION(AdcReaderTask, pvParameters)
 
          ADC_StartCmd(LPC_ADC, ADC_START_NOW);
 #else
-         //SPI_SingleTransaction(SPI_ADC_DEV, NULL, &buf);
-         //adcReading = (int32_t)((buf >> SPI_ADC_BIT_OFFSET) & SPI_ADC_BIT_MASK);
+         //SPI_SingleTransaction(SPI_ADC_DEV, NULL, &SampleBuffer[0]);
+         //adcReading = (int32_t)((SampleBuffer[0] >> SPI_ADC_BIT_OFFSET) & SPI_ADC_BIT_MASK);
 
-         SPI_BeginDMA_Transaction(SPI_ADC_DEV, NULL, SampleBuffer, sizeof(SampleBuffer), &AdcCallback);
+         SPI_BeginDMA_Transaction(SPI_ADC_DEV, NULL, (void *)SampleBuffer, 1024, &AdcCallback);
          State = ADC_READER_STOP;
 #endif
 
