@@ -9,11 +9,16 @@
 #define ADC_READER_TASK_DELAY_TICKS (10/portTICK_RATE_MS)
 
 
+#define ADC_READER_BUF_LEN          2048
+
+
 typedef enum
 {
    ADC_READER_STOP,
+   ADC_READER_READ_SINGLE,
    ADC_READER_READ_CONTINUOUS,
-   ADC_READER_READ_BURST
+   ADC_READER_READ_BURST,
+   ADC_READER_SAMPLING
 } AdcReaderCommand_E;
 
 
@@ -24,5 +29,8 @@ typedef struct
 
 
 bool AdcReaderInit();
+void AdcReaderQueueEvent(AdcReaderCommand_T *event);
+
+uint8_t AdcTrimSampleData(AdcCounts_T data);
 
 #endif //__ADC_READER_H__

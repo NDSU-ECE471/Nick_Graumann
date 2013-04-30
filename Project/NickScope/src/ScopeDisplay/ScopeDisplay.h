@@ -64,6 +64,12 @@ typedef struct
 
       struct
       {
+         volatile AdcCounts_T *data;
+         size_t size;
+      } AdcMemory;
+
+      struct
+      {
          TimebaseValue_T value;
          TimebaseUnits_E units;
       } TimebaseData;

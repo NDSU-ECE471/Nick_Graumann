@@ -49,7 +49,8 @@
 								<option id="gnu.c.compiler.option.warnings.pedantic.461415182" name="Pedantic (-pedantic)" superClass="gnu.c.compiler.option.warnings.pedantic" value="false" valueType="boolean"/>
 								<option id="gnu.c.compiler.option.warnings.allwarn.1555614592" name="All warnings (-Wall)" superClass="gnu.c.compiler.option.warnings.allwarn" value="true" valueType="boolean"/>
 								<option id="com.crt.advproject.c.misc.dialect.931901026" name="C Dialect" superClass="com.crt.advproject.c.misc.dialect" value="com.crt.advproject.misc.dialect.c99" valueType="enumerated"/>
-								<option id="gnu.c.compiler.option.warnings.extrawarn.1454111823" name="Extra warnings (-Wextra)" superClass="gnu.c.compiler.option.warnings.extrawarn" value="false" valueType="boolean"/>
+								<option id="gnu.c.compiler.option.warnings.extrawarn.1454111823" name="Extra warnings (-Wextra)" superClass="gnu.c.compiler.option.warnings.extrawarn" value="true" valueType="boolean"/>
+								<option id="gnu.c.compiler.option.warnings.wconversion.723230814" name="Implicit conversion warnings (-Wconversion)" superClass="gnu.c.compiler.option.warnings.wconversion" value="false" valueType="boolean"/>
 								<inputType id="com.crt.advproject.compiler.input.235228712" superClass="com.crt.advproject.compiler.input"/>
 							</tool>
 							<tool id="com.crt.advproject.gas.exe.debug.96710949" name="MCU Assembler" superClass="com.crt.advproject.gas.exe.debug">
@@ -86,6 +87,22 @@
 									<additionalInput kind="additionalinput" paths="$(LIBS)"/>
 								</inputType>
 							</tool>
+						</toolChain>
+					</folderInfo>
+					<folderInfo id="com.crt.advproject.config.exe.debug.818946559.1999446596" name="/" resourcePath="src">
+						<toolChain id="com.crt.advproject.toolchain.exe.debug.1202584722" name="Code Red MCU Tools" superClass="com.crt.advproject.toolchain.exe.debug" unusedChildren="">
+							<targetPlatform binaryParser="org.eclipse.cdt.core.ELF;org.eclipse.cdt.core.GNU_ELF" id="com.crt.advproject.platform.exe.debug" name="ARM-based MCU (Debug)" superClass="com.crt.advproject.platform.exe.debug"/>
+							<tool id="com.crt.advproject.cpp.exe.debug.630785694" name="MCU C++ Compiler" superClass="com.crt.advproject.cpp.exe.debug.976928639"/>
+							<tool id="com.crt.advproject.gcc.exe.debug.1381140155" name="MCU C Compiler" superClass="com.crt.advproject.gcc.exe.debug.1045201254">
+								<option id="gnu.c.compiler.option.warnings.wconversion.121655767" name="Implicit conversion warnings (-Wconversion)" superClass="gnu.c.compiler.option.warnings.wconversion" value="false" valueType="boolean"/>
+								<inputType id="com.crt.advproject.compiler.input.482161898" superClass="com.crt.advproject.compiler.input"/>
+							</tool>
+							<tool id="com.crt.advproject.gas.exe.debug.1763984047" name="MCU Assembler" superClass="com.crt.advproject.gas.exe.debug.96710949">
+								<inputType id="cdt.managedbuild.tool.gnu.assembler.input.894886035" superClass="cdt.managedbuild.tool.gnu.assembler.input"/>
+								<inputType id="com.crt.advproject.assembler.input.1545621691" name="Additional Assembly Source Files" superClass="com.crt.advproject.assembler.input"/>
+							</tool>
+							<tool id="com.crt.advproject.link.cpp.exe.debug.328698769" name="MCU C++ Linker" superClass="com.crt.advproject.link.cpp.exe.debug.1117158825"/>
+							<tool id="com.crt.advproject.link.exe.debug.1406378853" name="MCU Linker" superClass="com.crt.advproject.link.exe.debug.1881894119"/>
 						</toolChain>
 					</folderInfo>
 				</configuration>

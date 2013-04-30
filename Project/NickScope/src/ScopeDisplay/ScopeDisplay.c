@@ -5,6 +5,7 @@
 #include "queue.h"
 #include "task.h"
 
+#include "AdcReader/AdcReader.h"
 #include "LcdDisplay.h"
 #include "ScopeDisplay.h"
 
@@ -165,8 +166,37 @@ static void DrawTraceLine(LcdCoord traceXPos, LcdCoord traceLevelPixels, LcdCoor
 }
 
 
+static void DrawEntireTrace(volatile AdcCounts_T *data, size_t size)
+{
+   if(size < TRACE_AREA_WIDTH)
+   {
+      return;
+   }
+
+   LcdCoord traceLevelPixels;
+   LcdCoord prevTraceLevelPixels = TRACE_LEVEL_INVALID;
+
+   for(LcdCoord index=0; index<TRACE_AREA_WIDTH; index++)
+   {
+      uint32_t ind = (index*size)/TRACE_AREA_WIDTH;
+      traceLevelPixels = AdcReadingToPixels(AdcTrimSampleData(data[ind]));
+
+      if(prevTraceLevelPixels == TRACE_LEVEL_INVALID)
+      {
+         prevTraceLevelPixels = traceLevelPixels;
+      }
+
+      DrawTraceLine(TRACE_AREA_X+index, traceLevelPixels, prevTraceLevelPixels);
+
+      prevTraceLevelPixels = traceLevelPixels;
+   }
+}
+
+
 static portTASK_FUNCTION(ScopeDisplayTask, pvParameters)
 {
+   (void)pvParameters;
+
    ScopeDisplayEvent_T event;
    LcdCoord traceXPos = TRACE_AREA_X;
    LcdCoord traceLevelPixels;
@@ -196,7 +226,7 @@ static portTASK_FUNCTION(ScopeDisplayTask, pvParameters)
             break;
 
          case SCOPE_DISPLAY_EVENT_DRAW_TRACE:
-            // todo: draw whole trace at once from shared memory
+            DrawEntireTrace(event.AdcMemory.data, event.AdcMemory.size);
             break;
 
          case SCOPE_DISPLAY_EVENT_UPDATE_TIMEBASE:

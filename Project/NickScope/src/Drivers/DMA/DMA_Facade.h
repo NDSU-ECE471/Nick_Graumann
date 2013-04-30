@@ -16,7 +16,8 @@ typedef enum
    DMA_NOT_INITIALIZED,
    DMA_INVALID_PARAMETER,
    DMA_NO_FREE_CHANNELS,
-   DMA_UNSUPPORTED_PERIPHERAL
+   DMA_UNSUPPORTED_PERIPHERAL,
+   DMA_XFER_FAILED
 } DMA_Error_E;
 
 
@@ -56,6 +57,7 @@ typedef enum
 typedef uint8_t DMA_Channel_T;
 typedef uint32_t DMA_Address_T;
 typedef uint16_t DMA_TransferSize_T;
+typedef void (*DMA_Callback_T)(DMA_Error_E);
 
 
 #endif //__DMA_FACADE_H__

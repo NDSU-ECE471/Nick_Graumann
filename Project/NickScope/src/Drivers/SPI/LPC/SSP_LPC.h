@@ -13,7 +13,7 @@ SPI_Error_E LPC_SSP0_Init(SPI_ClkDiv_T pClkDiv, SPI_ClkDiv_T busClkDiv, SPI_ClkP
 SPI_Error_E LPC_SSP0_SingleTransaction(const uint16_t *txSrc, uint16_t *rxDest);
 
 SPI_Error_E LPC_SSP0_DMA_Init();
-SPI_Error_E LPC_SSP0_DMA_Transaction(const void *src, void *dest, size_t size, SPI_Callback_T callback);
+SPI_Error_E LPC_SSP0_DMA_Transaction(const void *src, void *dest, size_t size, SPI_Callback_T txCallback, SPI_Callback_T rxCallback);
 
 
 #endif //__SSP_LPC_H__

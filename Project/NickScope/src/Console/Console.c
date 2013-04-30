@@ -1,14 +1,9 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
+#include "AdcReader/AdcReader.h"
 #include "Console.h"
 #include "ScopeDisplay/ScopeDisplay.h"
-
-
-// todo: tempoarary
-#include <stdio.h>
-#include <string.h>
-#include "Drivers/SPI/LPC/SSP_LPC.h"
 
 
 static portTASK_FUNCTION(ConsoleTxTask, pvParameters);
@@ -36,23 +31,24 @@ bool ConsoleInit()
 
    retVal = retVal && (UART_Open(CONSOLE_UART_PORT, CONSOLE_UART_BAUD) == UART_SUCCESS);
 
-   //SSP0_Enable();
-
    return retVal;
 }
 
 
 static portTASK_FUNCTION(ConsoleTxTask, pvParameters)
 {
-   char buf[16];
-   uint16_t reading = 0;;
+   (void)pvParameters;
+
+   char buf = 0;
+   AdcReaderCommand_T adcCommand;
    while(1)
    {
-      //SSP0_Receive(&reading);
-      snprintf(buf, sizeof(buf), "ADC: %u\r\n", reading);
-      UART_Tx(CONSOLE_UART_PORT, buf, strlen(buf), UART_NON_BLOCKING);
+      UART_Rx(CONSOLE_UART_PORT, &buf, sizeof(buf), UART_BLOCKING);
 
-      vTaskDelay(100);
+      adcCommand.type = ADC_READER_READ_BURST;
+      AdcReaderQueueEvent(&adcCommand);
+
+      UART_Tx(CONSOLE_UART_PORT, &buf, sizeof(buf), UART_NON_BLOCKING);
    }
 }
 

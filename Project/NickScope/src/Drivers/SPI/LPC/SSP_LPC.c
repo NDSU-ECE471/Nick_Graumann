@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 #include "LPC17xx.h"
 #include "../../DMA/LPC/DMA_LPC.h"
 #include "Drivers/Clocks/ClocksFacade.h"
@@ -72,6 +73,8 @@ volatile uint32_t Trash;
 volatile const uint32_t Dummy = 0;
 
 static bool SSP0_Initialized = false;
+static SPI_Callback_T SSP0_DMA_TransactionTxCallback = NULL;
+static SPI_Callback_T SSP0_DMA_TransactionRxCallback = NULL;
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -84,6 +87,48 @@ static void SSP_FlushRx(LPC_SSP_TypeDef *dev)
    for(uint32_t i=0; i<LPC_SSP_FIFO_SIZE; i++)
    {
       Trash = dev->DR;
+   }
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// Receive DMA Callback
+//
+///////////////////////////////////////////////////////////////////////////////
+static void SSP0_DMA_RxCallback(DMA_Error_E dmaErr)
+{
+   if(SSP0_DMA_TransactionRxCallback)
+   {
+      if(DMA_SUCCESS == dmaErr)
+      {
+         (*SSP0_DMA_TransactionRxCallback)(SPI_SUCCESS);
+      }
+      else
+      {
+         (*SSP0_DMA_TransactionRxCallback)(SPI_DMA_XFER_FAILED);
+      }
+   }
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// Transmit DMA Callback
+//
+///////////////////////////////////////////////////////////////////////////////
+static void SSP0_DMA_TxCallback(DMA_Error_E dmaErr)
+{
+   if(SSP0_DMA_TransactionTxCallback)
+   {
+      if(DMA_SUCCESS == dmaErr)
+      {
+         (*SSP0_DMA_TransactionTxCallback)(SPI_SUCCESS);
+      }
+      else
+      {
+         (*SSP0_DMA_TransactionTxCallback)(SPI_DMA_XFER_FAILED);
+      }
    }
 }
 
@@ -315,7 +360,7 @@ SPI_Error_E LPC_SSP0_DMA_Init()
 // See SSP_LPC.h
 //
 ///////////////////////////////////////////////////////////////////////////////
-SPI_Error_E LPC_SSP0_DMA_Transaction(const void *src, void *dest, size_t size, SPI_Callback_T callback)
+SPI_Error_E LPC_SSP0_DMA_Transaction(const void *src, void *dest, size_t size, SPI_Callback_T txCallback, SPI_Callback_T rxCallback)
 {
    SPI_Error_E err = SPI_SUCCESS;
 
@@ -323,7 +368,7 @@ SPI_Error_E LPC_SSP0_DMA_Transaction(const void *src, void *dest, size_t size, S
    {
       err = SPI_NOT_INITIALIZED;
    }
-   if((!src && !dest) || size == 0 || !callback)
+   if((!src && !dest) || size == 0 || (!txCallback && !rxCallback))
    {
       err = SPI_INVALID_PARAMETER;
    }
@@ -372,13 +417,17 @@ SPI_Error_E LPC_SSP0_DMA_Transaction(const void *src, void *dest, size_t size, S
             break;
          }
 
-         dmaErr = LPC_DMA_BeginTransfer(txChan);
+         // Setup the callbacks before the DMA transaction starts
+         SSP0_DMA_TransactionTxCallback = txCallback;
+         SSP0_DMA_TransactionRxCallback = rxCallback;
+
+         dmaErr = LPC_DMA_BeginTransfer(txChan, &SSP0_DMA_TxCallback);
          if(DMA_SUCCESS != dmaErr)
          {
             break;
          }
 
-         dmaErr = LPC_DMA_BeginTransfer(rxChan);
+         dmaErr = LPC_DMA_BeginTransfer(rxChan, &SSP0_DMA_RxCallback);
          if(DMA_SUCCESS != dmaErr)
          {
             break;

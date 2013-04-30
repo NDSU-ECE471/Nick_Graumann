@@ -56,7 +56,17 @@ SPI_Error_E SPI_DMA_Init(SPI_Dev_E device)
 ///////////////////////////////////////////////////////////////////////////////
 SPI_Error_E SPI_SingleTransaction(SPI_Dev_E device, const void *src, void *dest)
 {
-   SPI_Error_E err = LPC_SSP0_SingleTransaction(src, dest);
+   SPI_Error_E err;
+
+   switch(device)
+   {
+   case SPI_0:
+      err = LPC_SSP0_SingleTransaction(src, dest);
+      break;
+
+   default:
+      err = SPI_INVALID_DEVICE;
+   }
 
    return err;
 }
@@ -67,14 +77,15 @@ SPI_Error_E SPI_SingleTransaction(SPI_Dev_E device, const void *src, void *dest)
 // See SPI_Facade.h
 //
 ///////////////////////////////////////////////////////////////////////////////
-SPI_Error_E SPI_BeginDMA_Transaction(SPI_Dev_E device, const void *src, void *dest, size_t size, SPI_Callback_T callback)
+SPI_Error_E SPI_BeginDMA_Transaction(SPI_Dev_E device, const void *src, void *dest,
+                                     size_t size, SPI_Callback_T txCallback, SPI_Callback_T rxCallback)
 {
    SPI_Error_E err;
 
    switch(device)
    {
    case SPI_0:
-      err = LPC_SSP0_DMA_Transaction(src, dest, size, callback);
+      err = LPC_SSP0_DMA_Transaction(src, dest, size, txCallback, rxCallback);
       break;
 
    default:

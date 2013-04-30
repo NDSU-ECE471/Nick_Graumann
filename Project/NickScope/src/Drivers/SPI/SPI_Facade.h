@@ -27,7 +27,8 @@ typedef enum
    SPI_NOT_INITIALIZED,
    SPI_CLK_FAILED,
    SPI_CLK_UNSUPPORTED,
-   SPI_DMA_SETUP_FAILED
+   SPI_DMA_SETUP_FAILED,
+   SPI_DMA_XFER_FAILED
 } SPI_Error_E;
 
 
@@ -53,14 +54,15 @@ typedef enum
 //
 ///////////////////////////////////////////////////////////////////////////////
 typedef uint32_t SPI_ClkDiv_T;
-typedef void (*SPI_Callback_T)(SPI_Error_E, SPI_Dev_E, const void *, void *, size_t);
+typedef void (*SPI_Callback_T)(SPI_Error_E);
 
 ///////////////////////////////////////////////////////////////////////////////
 //
 // Initializes the specified SPI interface
 //
 ///////////////////////////////////////////////////////////////////////////////
-SPI_Error_E SPI_Init(SPI_Dev_E device, SPI_ClkDiv_T pClkDiv, SPI_ClkDiv_T busClkDiv, SPI_ClkPolarity_E clkPol, SPI_ClkPhase_E clkPhase, size_t xferSizeBits);
+SPI_Error_E SPI_Init(SPI_Dev_E device, SPI_ClkDiv_T pClkDiv, SPI_ClkDiv_T busClkDiv,
+                     SPI_ClkPolarity_E clkPol, SPI_ClkPhase_E clkPhase, size_t xferSizeBits);
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -85,7 +87,8 @@ SPI_Error_E SPI_SingleTransaction(SPI_Dev_E device, const void *src, void *dest)
 //
 //
 ///////////////////////////////////////////////////////////////////////////////
-SPI_Error_E SPI_BeginDMA_Transaction(SPI_Dev_E device, const void *src, void *dest, size_t size, SPI_Callback_T callback);
+SPI_Error_E SPI_BeginDMA_Transaction(SPI_Dev_E device, const void *src, void *dest,
+                                     size_t size, SPI_Callback_T txCallback, SPI_Callback_T rxCallback);
 
 
 #endif //__SPI_FACADE_H__

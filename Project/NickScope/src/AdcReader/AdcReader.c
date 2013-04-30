@@ -7,6 +7,7 @@
 #include <cr_section_macros.h>
 
 #include "FreeRTOS.h"
+#include "queue.h"
 #include "task.h"
 
 #include "AdcReader.h"
@@ -14,35 +15,36 @@
 #include "ScopeDisplay/ScopeDisplay.h"
 
 
-#ifdef USE_INTERNAL_ADC
-   #define ADC_RATE     10000
-   #define ADC_CHANNEL  0
+#define SPI_ADC_DEV        SPI_0
+#define SPI_ADC_PCLK_DIV   1
+#define SPI_ADC_BUS_DIV    2
+#define SPI_ADC_BUS_POL    SPI_CLK_POLARITY_HIGH
+#define SPI_ADC_BUS_PHASE  SPI_PHASE_FIRST_EDGE
+#define SPI_ADC_XFER_SIZE  16
+#define SPI_ADC_BIT_OFFSET 6
+#define SPI_ADC_BIT_MASK   0xFF
 
-static void AdcInitialize()
-{
-   ADC_Init(LPC_ADC, ADC_RATE);
-   ADC_ChannelCmd(LPC_ADC, ADC_CHANNEL, ENABLE);
-}
-#else
-   #define SPI_ADC_DEV        SPI_0
-   #define SPI_ADC_PCLK_DIV   1
-   #define SPI_ADC_BUS_DIV    2
-   #define SPI_ADC_BUS_POL    SPI_CLK_POLARITY_HIGH
-   #define SPI_ADC_BUS_PHASE  SPI_PHASE_FIRST_EDGE
-   #define SPI_ADC_XFER_SIZE  16
-   #define SPI_ADC_BIT_OFFSET 6
-   #define SPI_ADC_BIT_MASK   0xFF
+volatile uint16_t SampleBuffer[ADC_READER_BUF_LEN] __BSS(RamAHB32) __attribute__((aligned (256)));
 
-
-volatile static uint16_t SampleBuffer[8192] __BSS(RamAHB32) __attribute__((aligned (256)));
-#endif
 
 static portTASK_FUNCTION(AdcReaderTask, pvParameters);
 
-static AdcReaderCommand_E State = ADC_READER_READ_CONTINUOUS;
+#define ADC_READER_EVENT_QUEUE_SIZE    10
+static xQueueHandle eventQueue = NULL;
+static AdcReaderCommand_E State = ADC_READER_STOP;
 
-void AdcCallback(SPI_Error_E err, SPI_Dev_E dev, const void *src, void *dest, size_t size)
+static void AdcCallback(SPI_Error_E err)
 {
+   if(SPI_SUCCESS == err)
+   {
+      State = ADC_READER_STOP;
+
+      ScopeDisplayEvent_T displayEvent;
+      displayEvent.type = SCOPE_DISPLAY_EVENT_DRAW_TRACE;
+      displayEvent.AdcMemory.data = SampleBuffer;
+      displayEvent.AdcMemory.size = sizeof(SampleBuffer)/sizeof(SampleBuffer[0]);
+      ScopeDisplayQueueEvent(&displayEvent);
+   }
 }
 
 
@@ -55,80 +57,83 @@ bool AdcReaderInit()
                              ADC_READER_TASK_PRIORITY,
                              NULL);
 
-#ifdef USE_INTERNAL_ADC
-   PINSEL_CFG_Type PinCfg;
-   PinCfg.Portnum = 0;
-   PinCfg.Pinnum = 23;
-   PinCfg.Pinmode = PINSEL_PINMODE_TRISTATE;
-   PinCfg.Funcnum = 1;
-   PinCfg.OpenDrain = PINSEL_PINMODE_NORMAL;
-   PINSEL_ConfigPin(&PinCfg);
+   eventQueue = xQueueCreate(ADC_READER_EVENT_QUEUE_SIZE, sizeof(AdcReaderCommand_T));
+   retVal = retVal && eventQueue;
 
-   AdcInitialize();
-#else
-   SPI_Init(SPI_ADC_DEV,
-            SPI_ADC_PCLK_DIV,
-            SPI_ADC_BUS_DIV,
-            SPI_ADC_BUS_POL,
-            SPI_ADC_BUS_PHASE,
-            SPI_ADC_XFER_SIZE);
+   retVal = retVal && (SPI_Init(SPI_ADC_DEV,
+                                SPI_ADC_PCLK_DIV,
+                                SPI_ADC_BUS_DIV,
+                                SPI_ADC_BUS_POL,
+                                SPI_ADC_BUS_PHASE,
+                                SPI_ADC_XFER_SIZE) == SPI_SUCCESS);
 
-   SPI_DMA_Init(SPI_ADC_DEV);
+   retVal = retVal && (SPI_DMA_Init(SPI_ADC_DEV) == SPI_SUCCESS);
 
    memset((void *)SampleBuffer, 0, sizeof(SampleBuffer));
-#endif
 
    return retVal;
 }
 
 
+void AdcReaderQueueEvent(AdcReaderCommand_T *event)
+{
+   xQueueSendToBack(eventQueue, event, 0);
+}
+
+
+uint8_t AdcTrimSampleData(AdcCounts_T data)
+{
+   return (uint8_t)((data >> SPI_ADC_BIT_OFFSET) & SPI_ADC_BIT_MASK);
+}
+
+
 static portTASK_FUNCTION(AdcReaderTask, pvParameters)
 {
+   (void)pvParameters;
+
+   AdcReaderCommand_T command;
    ScopeDisplayEvent_T displayEvent;
-   int32_t adcReading = -1;
+   AdcCounts_T adcReading = -1;
    portTickType lastWakeTime = xTaskGetTickCount();
 
    while(1)
    {
+      if(xQueueReceive(eventQueue, &command, 0))
+      {
+         if(ADC_READER_SAMPLING != State)
+         {
+            State = command.type;
+         }
+      }
+
       switch(State)
       {
       case ADC_READER_STOP:
+      case ADC_READER_SAMPLING:
          break;
 
+      case ADC_READER_READ_SINGLE:
       case ADC_READER_READ_CONTINUOUS:
-#ifdef USE_INTERNAL_ADC
-         if(ADC_ChannelGetStatus(LPC_ADC, ADC_CHANNEL, ADC_DATA_DONE) == SET)
-         {
-            adcReading = ADC_ChannelGetData(LPC_ADC, ADC_CHANNEL);
-         }
-         else
-         {
-            adcReading = -1;
-            ADC_DeInit(LPC_ADC);
-            AdcInitialize();
-         }
+         SPI_SingleTransaction(SPI_ADC_DEV, NULL, (void *)&SampleBuffer[0]);
+         adcReading = AdcTrimSampleData(SampleBuffer[0]);
 
-         ADC_StartCmd(LPC_ADC, ADC_START_NOW);
-#else
-         //SPI_SingleTransaction(SPI_ADC_DEV, NULL, &SampleBuffer[0]);
-         //adcReading = (int32_t)((SampleBuffer[0] >> SPI_ADC_BIT_OFFSET) & SPI_ADC_BIT_MASK);
-
-         SPI_BeginDMA_Transaction(SPI_ADC_DEV, NULL, (void *)SampleBuffer, 1024, &AdcCallback);
-         State = ADC_READER_STOP;
-#endif
-
-         if(adcReading != -1)
+         if(ADC_READER_READ_CONTINUOUS == State)
          {
             displayEvent.type = SCOPE_DISPLAY_EVENT_UPDATE_TRACE;
             displayEvent.adcReading = adcReading;
             ScopeDisplayQueueEvent(&displayEvent);
+         }
+         else
+         {
+            State = ADC_READER_STOP;
          }
 
          vTaskDelayUntil(&lastWakeTime, ADC_READER_TASK_DELAY_TICKS);
          break;
 
       case ADC_READER_READ_BURST:
-
+         SPI_BeginDMA_Transaction(SPI_ADC_DEV, NULL, (void *)SampleBuffer, ADC_READER_BUF_LEN, NULL, &AdcCallback);
+         State = ADC_READER_SAMPLING;
          break;
       }
    }

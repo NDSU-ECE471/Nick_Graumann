@@ -7,7 +7,7 @@
 
 extern LPC_GPIO_TypeDef *LPC_GPIO[];
 
-typedef int32_t AdcCounts_T;
+typedef uint16_t AdcCounts_T;
 typedef uint16_t UiValue;
 
 extern UiValue UI_VALUES[];

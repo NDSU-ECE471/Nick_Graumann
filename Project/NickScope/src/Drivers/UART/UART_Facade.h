@@ -19,7 +19,8 @@ typedef enum
 
 typedef enum
 {
-   UART_BAUD_9600 = 9600
+   UART_BAUD_9600 = 9600,
+   UART_BAUD_115200 = 115200
 } UART_BaudRate;
 
 

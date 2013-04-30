@@ -18,7 +18,7 @@ DMA_Error_E LPC_DMA_InitChannel(DMA_Channel_T channel,
                                 DMA_BurstSize_E srcBurstSize, DMA_BurstSize_E destBurstSize,
                                 DMA_TransferWidth_E srcWidth, DMA_TransferWidth_E destWidth,
                                 bool incSrcAddr, bool incDestAddr);
-DMA_Error_E LPC_DMA_BeginTransfer(DMA_Channel_T channel);
+DMA_Error_E LPC_DMA_BeginTransfer(DMA_Channel_T channel, DMA_Callback_T callback);
 DMA_Error_E LPC_DMA_FindFreeChannel(DMA_Channel_T *channel);
 
 

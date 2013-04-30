@@ -43,7 +43,6 @@ static const uint8_t DMA_BurstBits[] =
    [DMA_BURST_SIZE_1]   = 0x00,
    [DMA_BURST_SIZE_4]   = 0x01,
    [DMA_BURST_SIZE_8]   = 0x02,
-   [DMA_BURST_SIZE_8]   = 0x02,
    [DMA_BURST_SIZE_16]  = 0x03,
    [DMA_BURST_SIZE_32]  = 0x04,
    [DMA_BURST_SIZE_64]  = 0x05,
@@ -95,7 +94,8 @@ static const uint8_t DMA_PeripheralDestBits[] =
 //
 ///////////////////////////////////////////////////////////////////////////////
 static bool DMA_Initialized = false;
-static bool DMA_ChannelInitialized[LPC_DMA_NUM_CHANNELS];
+static bool DMA_ChannelInUse[LPC_DMA_NUM_CHANNELS];
+static DMA_Callback_T DMA_Callbacks[LPC_DMA_NUM_CHANNELS];
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -127,7 +127,8 @@ DMA_Error_E LPC_DMA_Init()
 
    if(!DMA_Initialized)
    {
-      memset(DMA_ChannelInitialized, 0, sizeof(DMA_ChannelInitialized));
+      memset(DMA_ChannelInUse, 0, sizeof(DMA_ChannelInUse));
+      memset(DMA_Callbacks, 0, sizeof(DMA_Callbacks));
 
       LPC_SC->PCONP |= DMA_PWR_EN;
       LPC_GPDMA->DMACConfig = DMA_ENABLE | DMA_LITTLE_ENDIAN;
@@ -229,7 +230,7 @@ DMA_Error_E LPC_DMA_InitChannel(DMA_Channel_T channel,
             LPC_GPDMACH[channel]->DMACCConfig = DMA_XFER_M2M_BITS;
          }
 
-         DMA_ChannelInitialized[channel] = true;
+         DMA_ChannelInUse[channel] = true;
       }
       while(0);
    }
@@ -243,7 +244,7 @@ DMA_Error_E LPC_DMA_InitChannel(DMA_Channel_T channel,
 // See DMA_LPC.h
 //
 ///////////////////////////////////////////////////////////////////////////////
-DMA_Error_E LPC_DMA_BeginTransfer(DMA_Channel_T channel)
+DMA_Error_E LPC_DMA_BeginTransfer(DMA_Channel_T channel, DMA_Callback_T callback)
 {
    DMA_Error_E err = DMA_SUCCESS;
 
@@ -251,12 +252,14 @@ DMA_Error_E LPC_DMA_BeginTransfer(DMA_Channel_T channel)
    {
       err = DMA_NOT_INITIALIZED;
    }
-   else if(channel > LPC_DMA_NUM_CHANNELS || !DMA_ChannelInitialized[channel])
+   else if(channel > LPC_DMA_NUM_CHANNELS || !DMA_ChannelInUse[channel])
    {
       err = DMA_INVALID_PARAMETER;
    }
    else
    {
+      DMA_Callbacks[channel] = callback;
+
       // Enable error and terminal count interrupts, enable channel
       LPC_GPDMACH[channel]->DMACCConfig |= DMA_ERROR_INT_BIT|DMA_TC_INT_BIT|DMA_CONFIG_EN_BIT;
    }
@@ -282,7 +285,7 @@ DMA_Error_E LPC_DMA_FindFreeChannel(DMA_Channel_T *channel)
    {
       for(DMA_Channel_T ch=0; ch<LPC_DMA_NUM_CHANNELS; ch++)
       {
-         if(!DMA_ChannelInitialized[ch])
+         if(!DMA_ChannelInUse[ch])
          {
             err = DMA_SUCCESS;
             *channel = ch;
@@ -304,6 +307,24 @@ void DMA_IRQHandler(void)
 {
    uint32_t regTCStat = LPC_GPDMA->DMACIntTCStat;
    uint32_t regErrStat = LPC_GPDMA->DMACIntErrStat;
+
+   for(DMA_Channel_T ch=0; ch<LPC_DMA_NUM_CHANNELS; ch++)
+   {
+      // Check if the transfer is complete on each channel
+      if(regTCStat & (1<<ch) && DMA_Callbacks[ch])
+      {
+         DMA_ChannelInUse[ch] = false;
+
+         if(regErrStat & (1<<ch))
+         {
+            (*DMA_Callbacks[ch])(DMA_XFER_FAILED);
+         }
+         else
+         {
+            (*DMA_Callbacks[ch])(DMA_SUCCESS);
+         }
+      }
+   }
 
    // Clear DMA interrupts
    LPC_GPDMA->DMACIntTCClear = regTCStat;
