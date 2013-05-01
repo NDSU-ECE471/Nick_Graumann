@@ -14,10 +14,17 @@
 #include "Drivers/Clocks/ClocksFacade.h"
 
 
+static bool HwInit()
+{
+   bool retVal = (ClocksInit() == CLOCKS_SUCCESS);
+   retVal = (retVal && ClocksSetCore(configCPU_CLOCK_HZ) == CLOCKS_SUCCESS);
+   return retVal;
+}
+
+
 int main(void)
 {
-   if(ClocksInit() == CLOCKS_SUCCESS &&
-      ClocksSetCore(96000000) == CLOCKS_SUCCESS &&
+   if(HwInit() &&
       AdcReaderInit() &&
       ScopeDisplayInit() &&
       ConsoleInit())

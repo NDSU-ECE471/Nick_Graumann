@@ -37,7 +37,7 @@
 #define SSP_BUSY           (1<<4)
 
 // CPSR register
-#define SSP0_PRESCALE_2 0x02
+#define SSP_CPSR_BITS      (0xFF)
 
 
 //DMACR register
@@ -184,7 +184,7 @@ static SPI_Error_E SSP0_SetBusClkDiv(SPI_ClkDiv_T busClkDiv)
    else
    {
       LPC_SSP0->CR0 &= ~SSP_SCR_BITS;
-      LPC_SSP0->CPSR = busClkDiv;
+      LPC_SSP0->CPSR = (busClkDiv & SSP_CPSR_BITS);
    }
 
    return err;
@@ -245,7 +245,8 @@ SPI_Error_E LPC_SSP0_Init(SPI_ClkDiv_T pClkDiv, SPI_ClkDiv_T busClkDiv, SPI_ClkP
          SSP0_SetupPins();
 
          // Convert transfer size to register bit representation
-         LPC_SSP0->CR0 = SSP_XFER_SIZE(xferSizeBits);
+         // CR0 has already been initially setup by SSP0_SetBusClkDiv()
+         LPC_SSP0->CR0 |= SSP_XFER_SIZE(xferSizeBits);
 
          // Clock polarity
          if(SPI_CLK_POLARITY_HIGH == clkPol)
@@ -385,12 +386,15 @@ SPI_Error_E LPC_SSP0_DMA_Transaction(const void *src, void *dest, size_t size, S
             break;
          }
 
+         // Trial and error showed that this combination of burst size with the standard
+         // transfer size was the most reliable. If a different combination is needed,
+         // it can be added as a parameter in the future.
          bool incDest = dest ? true : false;
          volatile void *destAddr = dest ? dest : &Trash;
          dmaErr = LPC_DMA_InitChannel(rxChan,
                                       (DMA_Address_T)&LPC_SSP0->DR, (DMA_Address_T)destAddr,
                                       DMA_PERIPH_SPI0, DMA_PERIPH_MEMORY, size,
-                                      DMA_BURST_SIZE_256, DMA_BURST_SIZE_256,
+                                      DMA_BURST_SIZE_1, DMA_BURST_SIZE_1,
                                       DMA_XFER_WIDTH_16, DMA_XFER_WIDTH_16,
                                       false, incDest);
          if(DMA_SUCCESS != dmaErr)
@@ -409,7 +413,7 @@ SPI_Error_E LPC_SSP0_DMA_Transaction(const void *src, void *dest, size_t size, S
          dmaErr = LPC_DMA_InitChannel(txChan,
                                       (DMA_Address_T)srcAddr, (DMA_Address_T)&LPC_SSP0->DR,
                                       DMA_PERIPH_MEMORY, DMA_PERIPH_SPI0, size,
-                                      DMA_BURST_SIZE_256, DMA_BURST_SIZE_256,
+                                      DMA_BURST_SIZE_1, DMA_BURST_SIZE_1,
                                       DMA_XFER_WIDTH_16, DMA_XFER_WIDTH_16,
                                       incSrc, false);
          if(DMA_SUCCESS != dmaErr)
