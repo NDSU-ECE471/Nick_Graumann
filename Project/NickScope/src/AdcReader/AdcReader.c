@@ -20,14 +20,16 @@
 #define SPI_ADC_BUS_DIV    2
 #define SPI_ADC_BUS_POL    SPI_CLK_POLARITY_HIGH
 #define SPI_ADC_BUS_PHASE  SPI_PHASE_FIRST_EDGE
-#define SPI_ADC_XFER_SIZE  16
-#define SPI_ADC_BIT_OFFSET 6
+#define SPI_ADC_XFER_SIZE  14
+#define SPI_ADC_BIT_OFFSET 4
 #define SPI_ADC_BIT_MASK   0xFF
 
-volatile uint16_t SampleBuffer[ADC_READER_BUF_LEN] __BSS(RamAHB32) __attribute__((aligned (256)));
+volatile AdcCounts_T SampleBuffer[ADC_READER_BUF_LEN] __BSS(RamAHB32) __attribute__((aligned (256)));
 
 
 static portTASK_FUNCTION(AdcReaderTask, pvParameters);
+
+#define ADC_READER_TASK_TIMEOUT_TICKS  10
 
 #define ADC_READER_EVENT_QUEUE_SIZE    10
 static xQueueHandle eventQueue = NULL;
@@ -37,14 +39,14 @@ static void AdcCallback(SPI_Error_E err)
 {
    if(SPI_SUCCESS == err)
    {
-      State = ADC_READER_STOP;
-
       ScopeDisplayEvent_T displayEvent;
       displayEvent.type = SCOPE_DISPLAY_EVENT_DRAW_TRACE;
       displayEvent.AdcMemory.data = SampleBuffer;
-      displayEvent.AdcMemory.size = sizeof(SampleBuffer)/sizeof(SampleBuffer[0]);
+      displayEvent.AdcMemory.size = ADC_READER_BUF_LEN;
       ScopeDisplayQueueEvent(&displayEvent);
    }
+
+   State = ADC_READER_STOP;
 }
 
 
@@ -98,7 +100,7 @@ static portTASK_FUNCTION(AdcReaderTask, pvParameters)
 
    while(1)
    {
-      if(xQueueReceive(eventQueue, &command, 0))
+      if(xQueueReceive(eventQueue, &command, ADC_READER_TASK_TIMEOUT_TICKS))
       {
          if(ADC_READER_SAMPLING != State)
          {
@@ -132,8 +134,21 @@ static portTASK_FUNCTION(AdcReaderTask, pvParameters)
          break;
 
       case ADC_READER_READ_BURST:
+         taskENTER_CRITICAL();
          SPI_BeginDMA_Transaction(SPI_ADC_DEV, NULL, (void *)SampleBuffer, ADC_READER_BUF_LEN, NULL, &AdcCallback);
+         taskEXIT_CRITICAL();
+
          State = ADC_READER_SAMPLING;
+
+         // The DMA operation should be complete long before this timeout.
+         vTaskDelay(ADC_READER_TASK_TIMEOUT_TICKS);
+
+         // Check if it's done. If not, don't know what happened, but for some reason we're not done....
+         // Just pretend we're finished so we don't get stuck in an infinte sampling state.
+         if(ADC_READER_SAMPLING == State)
+         {
+            State = ADC_READER_STOP;
+         }
          break;
       }
    }

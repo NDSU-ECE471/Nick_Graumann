@@ -9,7 +9,7 @@
 #define ADC_READER_TASK_DELAY_TICKS (10/portTICK_RATE_MS)
 
 
-#define ADC_READER_BUF_LEN          2048
+#define ADC_READER_BUF_LEN          1024
 
 
 typedef enum

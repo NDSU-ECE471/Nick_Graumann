@@ -165,30 +165,34 @@ static void DrawTraceLine(LcdCoord traceXPos, LcdCoord traceLevelPixels, LcdCoor
    }
 }
 
+// todo
+static uint32_t sizeInc = 1;//ADC_READER_BUF_LEN/TRACE_AREA_WIDTH;
 
 static void DrawEntireTrace(volatile AdcCounts_T *data, size_t size)
 {
-   if(size < TRACE_AREA_WIDTH)
-   {
-      return;
-   }
-
    LcdCoord traceLevelPixels;
    LcdCoord prevTraceLevelPixels = TRACE_LEVEL_INVALID;
 
-   for(LcdCoord index=0; index<TRACE_AREA_WIDTH; index++)
+   //sizeInc = size/TRACE_AREA_WIDTH;
+
+   for(uint32_t pos=0, index=0; pos<TRACE_AREA_WIDTH && index<size; pos+=sizeInc, index+=sizeInc)
    {
-      uint32_t ind = (index*size)/TRACE_AREA_WIDTH;
-      traceLevelPixels = AdcReadingToPixels(AdcTrimSampleData(data[ind]));
+      uint8_t sample = AdcTrimSampleData(data[index]);
+      traceLevelPixels = AdcReadingToPixels(sample);
 
       if(prevTraceLevelPixels == TRACE_LEVEL_INVALID)
       {
          prevTraceLevelPixels = traceLevelPixels;
       }
 
-      DrawTraceLine(TRACE_AREA_X+index, traceLevelPixels, prevTraceLevelPixels);
+      DrawTraceLine(TRACE_AREA_X+pos, traceLevelPixels, prevTraceLevelPixels);
 
       prevTraceLevelPixels = traceLevelPixels;
+   }
+
+   for(uint32_t i=0; i<ADC_READER_BUF_LEN; i++)
+   {
+      data[i] = AdcTrimSampleData(data[i]);
    }
 }
 
