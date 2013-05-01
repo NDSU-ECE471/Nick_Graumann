@@ -19,7 +19,7 @@ uint8 MAC[6] = {0x00, 0x08, 0xDC, 0x01, 0x02, 0x03};//MAC Address
 uint8 IP[4] = {192, 168, 1, 23};//IP Address
 uint8 GateWay[4] = {192, 168, 1, 1};//Gateway Address
 uint8 SubNet[4] = {255, 255, 255, 0};//SubnetMask Address
-uint8_t Dest_IP[4] = {192, 168, 1, 1}; //DST_IP Address
+uint8_t Dest_IP[4] = {192, 168, 1, 103}; //DST_IP Address
 uint16_t DEST_PORT = 5556;
 
 static portTASK_FUNCTION(InitTask, pvParameters);
@@ -56,11 +56,30 @@ static const char *INIT_COMMAND_TEMPLATES[] =
 };
 static size_t INIT_COMMAND_TEMPLATES_SIZE = sizeof(INIT_COMMAND_TEMPLATES)/sizeof(INIT_COMMAND_TEMPLATES[0]);
 
-static const char *TAKEOFF_PACKET_TEMPLATE = "AT*REF=%u,290718208\r";
-static const char *LAND_PACKET_TEMPLATE = "AT*REF=%u,290717696\r";
 static const char *WATCHDOG_PACKET_TEMPLATE = "AT*COMWDG=%u\r";
 
+// Control packets
+static const char *TAKEOFF_PACKET_TEMPLATE         = "AT*REF=%u,290718208\r";
+static const char *LAND_PACKET_TEMPLATE            = "AT*REF=%u,290717696\r";
+static const char *HOVER_PACKET_TEMPLATE           = "AT*PCMD=%u,0,0,0,0,0\r";
+static const char *FORWARD_PACKET_TEMPLATE         = "AT*PCMD=%u,1,0,-1065353216,0,0\r";
+static const char *BACKWARD_PACKET_TEMPLATE        = "AT*PCMD=%u,1,0,1065353216,0,0\r";
+static const char *STRAFE_LEFT_PACKET_TEMPLATE     = "AT*PCMD=%u,1,-1065353216,0,0,0\r";
+static const char *STRAFE_RIGHT_PACKET_TEMPLATE    = "AT*PCMD=%u,1,1065353216,0,0,0\r";
+
+
 void SendPacket(const char *packetTemplate);
+
+// GPIO Port 0
+#define BUTTON_TAKEOFF_PIN_BIT   (1<<2)
+#define BUTTON_LAND_PIN_BIT      (1<<3)
+
+// GPIO Port 2
+#define BUTTON_STRAFE_LEFT_PIN_BIT  (1<<6)
+#define BUTTON_STRAFE_RIGHT_PIN_BIT (1<<8)
+#define BUTTON_FORWARD_PIN_BIT      (1<<10)
+#define BUTTON_BACKWARD_PIN_BIT     (1<<12)
+
 
 #define BUTTON_TAKEOFF_BIT 0x01
 #define BUTTON_LAND_BIT    0x02
@@ -92,12 +111,15 @@ int main(void)
 	udpQueue = xQueueCreate(8, sizeof(UdpData_T));
 	commandSeqMutex = xSemaphoreCreateMutex();
 
-	xTaskCreate(InitTask, "InitTask", 256, NULL, tskIDLE_PRIORITY+4, NULL);
-	xTaskCreate(InputTask, "InputTask", 256, NULL, tskIDLE_PRIORITY+1, NULL);
-	xTaskCreate(UdpTask, "UdpTask", 256, NULL, tskIDLE_PRIORITY+2, NULL);
-	xTaskCreate(WatchdogTask, "WatchdogTask", 256, NULL, tskIDLE_PRIORITY+3, NULL);
+	if(xTaskCreate(InitTask, "InitTask", 256, NULL, tskIDLE_PRIORITY+4, NULL) &&
+	   xTaskCreate(InputTask, "InputTask", 256, NULL, tskIDLE_PRIORITY+1, NULL) &&
+	   xTaskCreate(UdpTask, "UdpTask", 256, NULL, tskIDLE_PRIORITY+2, NULL) &&
+	   xTaskCreate(WatchdogTask, "WatchdogTask", 256, NULL, tskIDLE_PRIORITY+3, NULL))
+	{
+	   vTaskStartScheduler();
+	}
 
-	vTaskStartScheduler();
+	while(1);
 }
 
 
@@ -134,7 +156,7 @@ static portTASK_FUNCTION(InputTask, pvParameters)
 
    while(1)
    {
-      if(!(LPC_GPIO0->FIOPIN & (1<<2)))
+      if(!(LPC_GPIO0->FIOPIN & BUTTON_TAKEOFF_PIN_BIT))
       {
          if(!(buttonStates & BUTTON_TAKEOFF_BIT))
          {
@@ -147,7 +169,7 @@ static portTASK_FUNCTION(InputTask, pvParameters)
          buttonStates &= ~BUTTON_TAKEOFF_BIT;
       }
 
-      if(!(LPC_GPIO0->FIOPIN & (1<<3)))
+      if(!(LPC_GPIO0->FIOPIN & BUTTON_LAND_PIN_BIT))
       {
          if(!(buttonStates & BUTTON_LAND_BIT))
          {
@@ -160,7 +182,28 @@ static portTASK_FUNCTION(InputTask, pvParameters)
          buttonStates &= ~BUTTON_LAND_BIT;
       }
 
-      vTaskDelayUntil(&prevWakeTime, 10);
+      if(!(LPC_GPIO2->FIOPIN & BUTTON_STRAFE_LEFT_PIN_BIT))
+      {
+         SendPacket(STRAFE_LEFT_PACKET_TEMPLATE);
+      }
+      else if(!(LPC_GPIO2->FIOPIN & BUTTON_STRAFE_RIGHT_PIN_BIT))
+      {
+         SendPacket(STRAFE_RIGHT_PACKET_TEMPLATE);
+      }
+      else if(!(LPC_GPIO2->FIOPIN & BUTTON_FORWARD_PIN_BIT))
+      {
+         SendPacket(FORWARD_PACKET_TEMPLATE);
+      }
+      else if(!(LPC_GPIO2->FIOPIN & BUTTON_BACKWARD_PIN_BIT))
+      {
+         SendPacket(BACKWARD_PACKET_TEMPLATE);
+      }
+      else
+      {
+         SendPacket(HOVER_PACKET_TEMPLATE);
+      }
+
+      vTaskDelayUntil(&prevWakeTime, 50);
    }
 }
 
