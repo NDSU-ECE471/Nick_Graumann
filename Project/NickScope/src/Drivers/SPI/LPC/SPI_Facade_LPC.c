@@ -31,14 +31,14 @@ SPI_Error_E SPI_Init(SPI_Dev_E device, SPI_ClkDiv_T pClkDiv, SPI_ClkDiv_T busClk
 // See SPI_Facade.h
 //
 ///////////////////////////////////////////////////////////////////////////////
-SPI_Error_E SPI_DMA_Init(SPI_Dev_E device)
+SPI_Error_E SPI_SetBusClkDiv(SPI_Dev_E device, SPI_ClkDiv_T busClkDiv)
 {
    SPI_Error_E err;
 
    switch(device)
    {
    case SPI_0:
-      err = LPC_SSP0_DMA_Init();
+      err = LPC_SSP0_SetBusClkDiv(busClkDiv);
       break;
 
    default:
@@ -62,6 +62,29 @@ SPI_Error_E SPI_SingleTransaction(SPI_Dev_E device, const void *src, void *dest)
    {
    case SPI_0:
       err = LPC_SSP0_SingleTransaction(src, dest);
+      break;
+
+   default:
+      err = SPI_INVALID_DEVICE;
+   }
+
+   return err;
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// See SPI_Facade.h
+//
+///////////////////////////////////////////////////////////////////////////////
+SPI_Error_E SPI_DMA_Init(SPI_Dev_E device)
+{
+   SPI_Error_E err;
+
+   switch(device)
+   {
+   case SPI_0:
+      err = LPC_SSP0_DMA_Init();
       break;
 
    default:

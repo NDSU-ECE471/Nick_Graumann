@@ -39,16 +39,39 @@ static portTASK_FUNCTION(ConsoleTxTask, pvParameters)
 {
    (void)pvParameters;
 
-   char buf = 0;
+   uint8_t rxChr = 0;
    AdcReaderCommand_T adcCommand;
+   ScopeDisplayEvent_T scopeDispCmd;
+
    while(1)
    {
-      UART_Rx(CONSOLE_UART_PORT, &buf, sizeof(buf), UART_BLOCKING);
+      UART_Rx(CONSOLE_UART_PORT, &rxChr, sizeof(rxChr), UART_BLOCKING);
 
-      adcCommand.type = ADC_READER_READ_BURST;
-      AdcReaderQueueEvent(&adcCommand);
+      switch(rxChr)
+      {
+      case ' ':
+         adcCommand.type = ADC_READER_READ_BURST;
+         AdcReaderQueueEvent(&adcCommand);
+         break;
 
-      UART_Tx(CONSOLE_UART_PORT, &buf, sizeof(buf), UART_NON_BLOCKING);
+      case 'i':
+      case 'I':
+         //scopeDispCmd.type = SCOPE_DISPLAY_EVENT_TIMEBASE_INC;
+         //ScopeDisplayQueueEvent(&scopeDispCmd);
+         adcCommand.type = ADC_READER_INC_SAMPLERATE;
+         AdcReaderQueueEvent(&adcCommand);
+         break;
+
+      case 'o':
+      case 'O':
+         //scopeDispCmd.type = SCOPE_DISPLAY_EVENT_TIMEBASE_DEC;
+         //ScopeDisplayQueueEvent(&scopeDispCmd);
+         adcCommand.type = ADC_READER_DEC_SAMPLERATE;
+         AdcReaderQueueEvent(&adcCommand);
+         break;
+      }
+
+      UART_Tx(CONSOLE_UART_PORT, &rxChr, sizeof(rxChr), UART_NON_BLOCKING);
    }
 }
 

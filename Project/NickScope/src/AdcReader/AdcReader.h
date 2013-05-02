@@ -18,7 +18,9 @@ typedef enum
    ADC_READER_READ_SINGLE,
    ADC_READER_READ_CONTINUOUS,
    ADC_READER_READ_BURST,
-   ADC_READER_SAMPLING
+   ADC_READER_SAMPLING,
+   ADC_READER_INC_SAMPLERATE,
+   ADC_READER_DEC_SAMPLERATE
 } AdcReaderCommand_E;
 
 
@@ -30,6 +32,7 @@ typedef struct
 
 bool AdcReaderInit();
 void AdcReaderQueueEvent(AdcReaderCommand_T *event);
+void AdcReaderGetSampleBuffer(volatile AdcCounts_T **bufPtr, size_t *size);
 
 uint8_t AdcTrimSampleData(AdcCounts_T data);
 

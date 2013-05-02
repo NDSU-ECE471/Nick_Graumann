@@ -38,6 +38,7 @@
 
 // CPSR register
 #define SSP_CPSR_BITS      (0xFF)
+#define SSP_CPSR_MAX_VAL   254
 
 
 //DMACR register
@@ -171,7 +172,7 @@ static SPI_Error_E SSP0_SetPClkDiv(SPI_ClkDiv_T pClkDiv)
 // Calculates the bus divider
 //
 ///////////////////////////////////////////////////////////////////////////////
-static SPI_Error_E SSP0_SetBusClkDiv(SPI_ClkDiv_T busClkDiv)
+static SPI_Error_E SSP0_SetBusClkDivInternal(SPI_ClkDiv_T busClkDiv)
 {
    SPI_Error_E err = SPI_SUCCESS;
 
@@ -183,8 +184,18 @@ static SPI_Error_E SSP0_SetBusClkDiv(SPI_ClkDiv_T busClkDiv)
    }
    else
    {
+      uint32_t cpsrVal = busClkDiv;
+      uint8_t cr0Val = 1;
+
+      while(cpsrVal > SSP_CPSR_MAX_VAL)
+      {
+         cpsrVal /= 2;
+         cr0Val *= 2;
+      }
+
       LPC_SSP0->CR0 &= ~SSP_SCR_BITS;
-      LPC_SSP0->CPSR = (busClkDiv & SSP_CPSR_BITS);
+      LPC_SSP0->CR0 |= ((cr0Val-1)<<8);
+      LPC_SSP0->CPSR = (cpsrVal & SSP_CPSR_BITS);
    }
 
    return err;
@@ -240,7 +251,7 @@ SPI_Error_E LPC_SSP0_Init(SPI_ClkDiv_T pClkDiv, SPI_ClkDiv_T busClkDiv, SPI_ClkP
       // Power on the peripheral
       LPC_SC->PCONP |= SSP0_PWR_EN;
 
-      if(SPI_SUCCESS == SSP0_SetPClkDiv(pClkDiv) && SPI_SUCCESS == SSP0_SetBusClkDiv(busClkDiv))
+      if(SPI_SUCCESS == SSP0_SetPClkDiv(pClkDiv) && SPI_SUCCESS == SSP0_SetBusClkDivInternal(busClkDiv))
       {
          SSP0_SetupPins();
 
@@ -267,6 +278,30 @@ SPI_Error_E LPC_SSP0_Init(SPI_ClkDiv_T pClkDiv, SPI_ClkDiv_T busClkDiv, SPI_ClkP
 
          SSP0_Initialized = true;
       }
+   }
+
+   return err;
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// See SSP_LPC.h
+//
+///////////////////////////////////////////////////////////////////////////////
+SPI_Error_E LPC_SSP0_SetBusClkDiv(SPI_ClkDiv_T busClkDiv)
+{
+   SPI_Error_E err = SPI_SUCCESS;
+
+   if(!SSP0_Initialized)
+   {
+      err = SPI_NOT_INITIALIZED;
+   }
+   else
+   {
+      LPC_SSP0->CR1 &= ~SSP_ENABLE;
+      err = SSP0_SetBusClkDivInternal(busClkDiv);
+      LPC_SSP0->CR1 = SSP_ENABLE;
    }
 
    return err;

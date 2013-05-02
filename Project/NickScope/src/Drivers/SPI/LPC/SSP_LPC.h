@@ -10,6 +10,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 SPI_Error_E LPC_SSP0_Init(SPI_ClkDiv_T pClkDiv, SPI_ClkDiv_T busClkDiv, SPI_ClkPolarity_E clkPol, SPI_ClkPhase_E clkPhase, size_t transferSize);
+SPI_Error_E LPC_SSP0_SetBusClkDiv(SPI_ClkDiv_T busClkDiv);
 SPI_Error_E LPC_SSP0_SingleTransaction(const uint16_t *txSrc, uint16_t *rxDest);
 
 SPI_Error_E LPC_SSP0_DMA_Init();

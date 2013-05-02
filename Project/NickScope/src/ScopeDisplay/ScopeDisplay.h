@@ -50,7 +50,9 @@ typedef enum
    SCOPE_DISPLAY_EVENT_UPDATE_TRACE = 0,
    SCOPE_DISPLAY_EVENT_DRAW_TRACE,
    SCOPE_DISPLAY_EVENT_UPDATE_TIMEBASE,
-   SCOPE_DISPLAY_EVENT_UPDATE_VDIV
+   SCOPE_DISPLAY_EVENT_UPDATE_VDIV,
+   SCOPE_DISPLAY_EVENT_TIMEBASE_INC,
+   SCOPE_DISPLAY_EVENT_TIMEBASE_DEC
 } ScopeDisplayEventType_E;
 
 
@@ -65,7 +67,7 @@ typedef struct
       struct
       {
          volatile AdcCounts_T *data;
-         size_t size;
+         size_t length;
       } AdcMemory;
 
       struct

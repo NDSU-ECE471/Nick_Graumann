@@ -11,6 +11,7 @@
 
 #define SCOPE_DISPLAY_EVENT_QUEUE_SIZE 10
 static xQueueHandle eventQueue = NULL;
+static uint32_t ZoomFactor = 1;
 
 static void DrawBorder();
 static portTASK_FUNCTION(ScopeDisplayTask, pvParameters);
@@ -165,22 +166,19 @@ static void DrawTraceLine(LcdCoord traceXPos, LcdCoord traceLevelPixels, LcdCoor
    }
 }
 
-// todo
-static uint32_t sizeInc = 1;//ADC_READER_BUF_LEN/TRACE_AREA_WIDTH;
-
-static void DrawEntireTrace(volatile AdcCounts_T *data, size_t size)
+static void DrawEntireTrace(volatile AdcCounts_T *data, size_t length)
 {
    LcdCoord traceLevelPixels;
    LcdCoord prevTraceLevelPixels = TRACE_LEVEL_INVALID;
 
-   //sizeInc = size/TRACE_AREA_WIDTH;
+   uint32_t sizeInc = 1;//length/TRACE_AREA_WIDTH/ZoomFactor;
 
-   for(uint32_t pos=0, index=0; pos<TRACE_AREA_WIDTH && index<size; pos+=sizeInc, index+=sizeInc)
+   for(uint32_t pos=0, index=0; pos<TRACE_AREA_WIDTH && index<length; pos++, index+=sizeInc)
    {
       uint8_t sample = AdcTrimSampleData(data[index]);
       traceLevelPixels = AdcReadingToPixels(sample);
 
-      if(prevTraceLevelPixels == TRACE_LEVEL_INVALID)
+      if(TRACE_LEVEL_INVALID == prevTraceLevelPixels)
       {
          prevTraceLevelPixels = traceLevelPixels;
       }
@@ -188,11 +186,6 @@ static void DrawEntireTrace(volatile AdcCounts_T *data, size_t size)
       DrawTraceLine(TRACE_AREA_X+pos, traceLevelPixels, prevTraceLevelPixels);
 
       prevTraceLevelPixels = traceLevelPixels;
-   }
-
-   for(uint32_t i=0; i<ADC_READER_BUF_LEN; i++)
-   {
-      data[i] = AdcTrimSampleData(data[i]);
    }
 }
 
@@ -230,7 +223,7 @@ static portTASK_FUNCTION(ScopeDisplayTask, pvParameters)
             break;
 
          case SCOPE_DISPLAY_EVENT_DRAW_TRACE:
-            DrawEntireTrace(event.AdcMemory.data, event.AdcMemory.size);
+            DrawEntireTrace(event.AdcMemory.data, event.AdcMemory.length);
             break;
 
          case SCOPE_DISPLAY_EVENT_UPDATE_TIMEBASE:
@@ -239,6 +232,27 @@ static portTASK_FUNCTION(ScopeDisplayTask, pvParameters)
 
          case SCOPE_DISPLAY_EVENT_UPDATE_VDIV:
             DrawVdiv(event.VdivData.value, event.VdivData.units);
+            break;
+
+         case SCOPE_DISPLAY_EVENT_TIMEBASE_INC:
+            ZoomFactor+=2;
+         case SCOPE_DISPLAY_EVENT_TIMEBASE_DEC:
+            ZoomFactor--;
+
+            if(ZoomFactor == 0)
+            {
+               ZoomFactor = 1;
+            }
+
+            volatile AdcCounts_T *sampleBuf;
+            size_t bufLen;
+            AdcReaderGetSampleBuffer(&sampleBuf, &bufLen);
+
+            ScopeDisplayEvent_T scopeDispEvent;
+            scopeDispEvent.type = SCOPE_DISPLAY_EVENT_DRAW_TRACE;
+            scopeDispEvent.AdcMemory.data = sampleBuf;
+            scopeDispEvent.AdcMemory.length = bufLen;
+            ScopeDisplayQueueEvent(&scopeDispEvent);
             break;
          }
       }

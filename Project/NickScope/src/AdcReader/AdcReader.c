@@ -25,6 +25,7 @@
 #define SPI_ADC_BIT_MASK   0xFF
 
 volatile AdcCounts_T SampleBuffer[ADC_READER_BUF_LEN] __BSS(RamAHB32) __attribute__((aligned (256)));
+#define SAMPLE_BUFFER_LEN  (sizeof(SampleBuffer)/sizeof(SampleBuffer[0]));
 
 
 static portTASK_FUNCTION(AdcReaderTask, pvParameters);
@@ -35,6 +36,8 @@ static portTASK_FUNCTION(AdcReaderTask, pvParameters);
 static xQueueHandle eventQueue = NULL;
 static AdcReaderCommand_E State = ADC_READER_STOP;
 
+static SPI_ClkDiv_T ADC_SPI_BusClkDivVal = SPI_ADC_BUS_DIV;
+
 static void AdcCallback(SPI_Error_E err)
 {
    if(SPI_SUCCESS == err)
@@ -42,7 +45,7 @@ static void AdcCallback(SPI_Error_E err)
       ScopeDisplayEvent_T displayEvent;
       displayEvent.type = SCOPE_DISPLAY_EVENT_DRAW_TRACE;
       displayEvent.AdcMemory.data = SampleBuffer;
-      displayEvent.AdcMemory.size = ADC_READER_BUF_LEN;
+      displayEvent.AdcMemory.length = ADC_READER_BUF_LEN;
       ScopeDisplayQueueEvent(&displayEvent);
    }
 
@@ -80,6 +83,20 @@ bool AdcReaderInit()
 void AdcReaderQueueEvent(AdcReaderCommand_T *event)
 {
    xQueueSendToBack(eventQueue, event, 0);
+}
+
+
+void AdcReaderGetSampleBuffer(volatile AdcCounts_T **bufPtr, size_t *length)
+{
+   if(bufPtr)
+   {
+      *bufPtr = SampleBuffer;
+   }
+
+   if(length)
+   {
+      *length = SAMPLE_BUFFER_LEN;
+   }
 }
 
 
@@ -149,6 +166,28 @@ static portTASK_FUNCTION(AdcReaderTask, pvParameters)
          {
             State = ADC_READER_STOP;
          }
+         break;
+
+      case ADC_READER_INC_SAMPLERATE:
+         if(ADC_SPI_BusClkDivVal > 2)
+         {
+            ADC_SPI_BusClkDivVal /= 2;
+         }
+
+         SPI_SetBusClkDiv(SPI_ADC_DEV, ADC_SPI_BusClkDivVal);
+
+         State = ADC_READER_READ_BURST;
+         break;
+
+      case ADC_READER_DEC_SAMPLERATE:
+         if(ADC_SPI_BusClkDivVal < 8192)
+         {
+            ADC_SPI_BusClkDivVal *= 2;
+         }
+
+         SPI_SetBusClkDiv(SPI_ADC_DEV, ADC_SPI_BusClkDivVal);
+
+         State = ADC_READER_READ_BURST;
          break;
       }
    }
