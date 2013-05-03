@@ -11,10 +11,31 @@
 
 #define SCOPE_DISPLAY_EVENT_QUEUE_SIZE 10
 static xQueueHandle eventQueue = NULL;
-static uint32_t ZoomFactor = 1;
 
 static void DrawBorder();
 static portTASK_FUNCTION(ScopeDisplayTask, pvParameters);
+
+
+#define MIN_TIMEBASE_US_INDEX 2
+#define MAX_TIMEBASE_S_INDEX  0
+
+static const uint32_t TIMEBASE_INTERVALS[] =
+{
+   1,
+   2,
+   5,
+   10,
+   20,
+   50,
+   100,
+   200,
+   500
+};
+#define TIMEBASE_INTERVALS_SIZE   (sizeof(TIMEBASE_INTERVALS)/sizeof(TIMEBASE_INTERVALS[0]))
+
+// Index the first item (5ms) in the TIMEBASE_INTERVALS array
+static uint32_t timebaseIndex = MIN_TIMEBASE_US_INDEX;
+static TimebaseUnits_E timebaseUnits = TIMEBASE_uS;
 
 
 bool ScopeDisplayInit()
@@ -33,6 +54,12 @@ bool ScopeDisplayInit()
    fillScreen(DISPLAY_BG_COLOR);
 
    DrawBorder();
+
+   ScopeDisplayEvent_T displayEvent;
+   displayEvent.type = SCOPE_DISPLAY_EVENT_UPDATE_TIMEBASE;
+   displayEvent.TimebaseData.value = TIMEBASE_INTERVALS[timebaseIndex];
+   displayEvent.TimebaseData.units = timebaseUnits;
+   ScopeDisplayQueueEvent(&displayEvent);
 
    return retVal;
 }
@@ -95,20 +122,16 @@ static void DrawTimebase(TimebaseValue_T time, TimebaseUnits_E units)
    char buffer[16];
    switch(units)
    {
-   case TIMEBASE_nS:
-      snprintf(buffer, sizeof(buffer), "%uns/div", time);
-      break;
-
    case TIMEBASE_uS:
-      snprintf(buffer, sizeof(buffer), "%uus/div", time);
+      snprintf(buffer, sizeof(buffer), "%4uus/div", time);
       break;
 
    case TIMEBASE_mS:
-      snprintf(buffer, sizeof(buffer), "%ums/div", time);
+      snprintf(buffer, sizeof(buffer), "%4ums/div", time);
       break;
 
    case TIMEBASE_S:
-      snprintf(buffer, sizeof(buffer), "%us/div", time);
+      snprintf(buffer, sizeof(buffer), "%4us/div", time);
       break;
 
    default:
@@ -171,7 +194,7 @@ static void DrawEntireTrace(volatile AdcCounts_T *data, size_t length)
    LcdCoord traceLevelPixels;
    LcdCoord prevTraceLevelPixels = TRACE_LEVEL_INVALID;
 
-   uint32_t sizeInc = 1;//length/TRACE_AREA_WIDTH/ZoomFactor;
+   uint32_t sizeInc = 1;
 
    for(uint32_t pos=0, index=0; pos<TRACE_AREA_WIDTH && index<length; pos++, index+=sizeInc)
    {
@@ -187,6 +210,12 @@ static void DrawEntireTrace(volatile AdcCounts_T *data, size_t length)
 
       prevTraceLevelPixels = traceLevelPixels;
    }
+}
+
+
+static void UpdateTimebase()
+{
+   DrawTimebase(TIMEBASE_INTERVALS[timebaseIndex], timebaseUnits);
 }
 
 
@@ -235,24 +264,38 @@ static portTASK_FUNCTION(ScopeDisplayTask, pvParameters)
             break;
 
          case SCOPE_DISPLAY_EVENT_TIMEBASE_INC:
-            ZoomFactor+=2;
-         case SCOPE_DISPLAY_EVENT_TIMEBASE_DEC:
-            ZoomFactor--;
-
-            if(ZoomFactor == 0)
+            if(!(TIMEBASE_S == timebaseUnits && MAX_TIMEBASE_S_INDEX == timebaseIndex))
             {
-               ZoomFactor = 1;
+               if(timebaseIndex < TIMEBASE_INTERVALS_SIZE-1)
+               {
+                  timebaseIndex++;
+               }
+               else
+               {
+                  timebaseIndex = 0;
+                  timebaseUnits++;
+               }
+
+               UpdateTimebase();
             }
+            break;
 
-            volatile AdcCounts_T *sampleBuf;
-            size_t bufLen;
-            AdcReaderGetSampleBuffer(&sampleBuf, &bufLen);
+         case SCOPE_DISPLAY_EVENT_TIMEBASE_DEC:
+            // Make sure we can still zoom in
+            if(!(TIMEBASE_uS == timebaseUnits && MIN_TIMEBASE_US_INDEX == timebaseIndex))
+            {
+               if(timebaseIndex > 0)
+               {
+                  timebaseIndex--;
+               }
+               else
+               {
+                  timebaseIndex = TIMEBASE_INTERVALS_SIZE-1;
+                  timebaseUnits--;
+               }
 
-            ScopeDisplayEvent_T scopeDispEvent;
-            scopeDispEvent.type = SCOPE_DISPLAY_EVENT_DRAW_TRACE;
-            scopeDispEvent.AdcMemory.data = sampleBuf;
-            scopeDispEvent.AdcMemory.length = bufLen;
-            ScopeDisplayQueueEvent(&scopeDispEvent);
+               UpdateTimebase();
+            }
             break;
          }
       }

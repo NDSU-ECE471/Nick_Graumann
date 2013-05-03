@@ -25,10 +25,10 @@ typedef uint16_t TimebaseValue_T;
 
 typedef enum
 {
-   TIMEBASE_nS = 0,
-   TIMEBASE_uS,
+   TIMEBASE_uS = 0,
    TIMEBASE_mS,
-   TIMEBASE_S
+   TIMEBASE_S,
+   NUM_TIMEBASES
 } TimebaseUnits_E;
 
 #endif //__TYPES_H__
