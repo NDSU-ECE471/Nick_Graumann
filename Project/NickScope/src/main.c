@@ -10,8 +10,8 @@
 
 #include "AdcReader/AdcReader.h"
 #include "ScopeDisplay/ScopeDisplay.h"
-#include "Console/Console.h"
 #include "Drivers/Clocks/ClocksFacade.h"
+#include "UserInput/UserInput.h"
 
 
 static bool HwInit()
@@ -27,7 +27,7 @@ int main(void)
    if(HwInit() &&
       AdcReaderInit() &&
       ScopeDisplayInit() &&
-      ConsoleInit())
+      UserInputInit())
    {
       vTaskStartScheduler();
    }

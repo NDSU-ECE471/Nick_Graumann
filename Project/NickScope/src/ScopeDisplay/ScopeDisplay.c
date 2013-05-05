@@ -9,6 +9,12 @@
 #include "LcdDisplay.h"
 #include "ScopeDisplay.h"
 
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// Local definitions
+//
+///////////////////////////////////////////////////////////////////////////////
 #define SCOPE_DISPLAY_EVENT_QUEUE_SIZE 10
 static xQueueHandle eventQueue = NULL;
 
@@ -33,11 +39,17 @@ static const uint32_t TIMEBASE_INTERVALS[] =
 };
 #define TIMEBASE_INTERVALS_SIZE   (sizeof(TIMEBASE_INTERVALS)/sizeof(TIMEBASE_INTERVALS[0]))
 
-// Index the first item (5ms) in the TIMEBASE_INTERVALS array
+// Initial timebase is the minimum timebase we can have, defined by the minimum allowable
+// timebase in the uS range.
 static uint32_t timebaseIndex = MIN_TIMEBASE_US_INDEX;
 static TimebaseUnits_E timebaseUnits = TIMEBASE_uS;
 
 
+///////////////////////////////////////////////////////////////////////////////
+//
+// See ScopeDisplay.h
+//
+///////////////////////////////////////////////////////////////////////////////
 bool ScopeDisplayInit()
 {
    bool retVal = xTaskCreate(ScopeDisplayTask,
@@ -65,18 +77,34 @@ bool ScopeDisplayInit()
 }
 
 
+///////////////////////////////////////////////////////////////////////////////
+//
+// See ScopeDisplay.h
+//
+///////////////////////////////////////////////////////////////////////////////
 void ScopeDisplayQueueEvent(ScopeDisplayEvent_T *event)
 {
    xQueueSendToBack(eventQueue, event, 0);
 }
 
 
+///////////////////////////////////////////////////////////////////////////////
+//
+// Converts and ADC reading to pixels based on the size of the trace area
+// and resolution of the ADC.
+//
+///////////////////////////////////////////////////////////////////////////////
 static LcdCoord AdcReadingToPixels(AdcCounts_T adcReading)
 {
-   return ((TRACE_AREA_HEIGHT-1) - (adcReading * (TRACE_AREA_HEIGHT-1) / ADC_MAX_COUNTS));
+   return ((TRACE_AREA_HEIGHT-1) - (adcReading * (TRACE_AREA_HEIGHT-1) / ADC_READER_MAX_COUNTS));
 }
 
 
+///////////////////////////////////////////////////////////////////////////////
+//
+// Draws the border around the trace area including tick marks.
+//
+///////////////////////////////////////////////////////////////////////////////
 static void DrawBorder()
 {
 #if TRACE_BORDER_THICKNESS == 2
@@ -117,6 +145,11 @@ static void DrawBorder()
 }
 
 
+///////////////////////////////////////////////////////////////////////////////
+//
+// Updates the _s/div display with timebase value and units.
+//
+///////////////////////////////////////////////////////////////////////////////
 static void DrawTimebase(TimebaseValue_T time, TimebaseUnits_E units)
 {
    char buffer[16];
@@ -143,6 +176,11 @@ static void DrawTimebase(TimebaseValue_T time, TimebaseUnits_E units)
 }
 
 
+///////////////////////////////////////////////////////////////////////////////
+//
+// Updates the V/div display with given value and units.
+//
+///////////////////////////////////////////////////////////////////////////////
 static void DrawVdiv(V_DivValue_T vdiv, V_DivUnits_E units)
 {
    char buffer[16];
@@ -165,6 +203,11 @@ static void DrawVdiv(V_DivValue_T vdiv, V_DivUnits_E units)
 }
 
 
+///////////////////////////////////////////////////////////////////////////////
+//
+// Draws one pixel-step of the scope trace.
+//
+///////////////////////////////////////////////////////////////////////////////
 static void DrawTraceLine(LcdCoord traceXPos, LcdCoord traceLevelPixels, LcdCoord prevTraceLevelPixels)
 {
    // Erase previous data
@@ -189,6 +232,11 @@ static void DrawTraceLine(LcdCoord traceXPos, LcdCoord traceLevelPixels, LcdCoor
    }
 }
 
+///////////////////////////////////////////////////////////////////////////////
+//
+// Draws the entire scope trace given an arry of counts data and its length.
+//
+///////////////////////////////////////////////////////////////////////////////
 static void DrawEntireTrace(volatile AdcCounts_T *data, size_t length)
 {
    LcdCoord traceLevelPixels;
@@ -213,12 +261,22 @@ static void DrawEntireTrace(volatile AdcCounts_T *data, size_t length)
 }
 
 
+///////////////////////////////////////////////////////////////////////////////
+//
+// Draws an updated timebase value given the current settings
+//
+///////////////////////////////////////////////////////////////////////////////
 static void UpdateTimebase()
 {
    DrawTimebase(TIMEBASE_INTERVALS[timebaseIndex], timebaseUnits);
 }
 
 
+///////////////////////////////////////////////////////////////////////////////
+//
+// FreeRTOS task
+//
+///////////////////////////////////////////////////////////////////////////////
 static portTASK_FUNCTION(ScopeDisplayTask, pvParameters)
 {
    (void)pvParameters;
@@ -252,7 +310,11 @@ static portTASK_FUNCTION(ScopeDisplayTask, pvParameters)
             break;
 
          case SCOPE_DISPLAY_EVENT_DRAW_TRACE:
-            DrawEntireTrace(event.AdcMemory.data, event.AdcMemory.length);
+            if(event.AdcMemory.mutex && xSemaphoreTake(event.AdcMemory.mutex, ADC_SAMPLE_MUTEX_TIMEOUT))
+            {
+               DrawEntireTrace(event.AdcMemory.data, event.AdcMemory.length);
+               xSemaphoreGive(event.AdcMemory.mutex);
+            }
             break;
 
          case SCOPE_DISPLAY_EVENT_UPDATE_TIMEBASE:

@@ -2,6 +2,7 @@
 #define __DMA_FACADE_H__
 
 
+#include <stdbool.h>
 #include <stdint.h>
 
 
@@ -58,6 +59,23 @@ typedef uint8_t DMA_Channel_T;
 typedef uint32_t DMA_Address_T;
 typedef uint16_t DMA_TransferSize_T;
 typedef void (*DMA_Callback_T)(DMA_Error_E);
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// Public Functions
+//
+///////////////////////////////////////////////////////////////////////////////
+DMA_Error_E DMA_Init();
+DMA_Error_E DMA_InitChannel(DMA_Channel_T channel,
+                                DMA_Address_T srcAddr, DMA_Address_T destAddr,
+                                DMA_Peripheral_E srcPeriph, DMA_Peripheral_E destPeriph,
+                                DMA_TransferSize_T xferSize,
+                                DMA_BurstSize_E srcBurstSize, DMA_BurstSize_E destBurstSize,
+                                DMA_TransferWidth_E srcWidth, DMA_TransferWidth_E destWidth,
+                                bool incSrcAddr, bool incDestAddr);
+DMA_Error_E DMA_BeginTransfer(DMA_Channel_T channel, DMA_Callback_T callback);
+DMA_Error_E DMA_FindFreeChannel(DMA_Channel_T *channel);
 
 
 #endif //__DMA_FACADE_H__

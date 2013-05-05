@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include "LPC17xx.h"
-#include "../../DMA/LPC/DMA_LPC.h"
+#include "../../DMA/DMA_Facade.h"
 #include "Drivers/Clocks/ClocksFacade.h"
 #include "SSP_LPC.h"
 
@@ -377,7 +377,7 @@ SPI_Error_E LPC_SSP0_DMA_Init()
    }
    else
    {
-      if(DMA_SUCCESS != LPC_DMA_Init())
+      if(DMA_SUCCESS != DMA_Init())
       {
          err = SPI_DMA_SETUP_FAILED;
       }
@@ -415,7 +415,7 @@ SPI_Error_E LPC_SSP0_DMA_Transaction(const void *src, void *dest, size_t size, S
 
       do
       {
-         dmaErr = LPC_DMA_FindFreeChannel(&rxChan);
+         dmaErr = DMA_FindFreeChannel(&rxChan);
          if(DMA_SUCCESS != dmaErr)
          {
             break;
@@ -426,7 +426,7 @@ SPI_Error_E LPC_SSP0_DMA_Transaction(const void *src, void *dest, size_t size, S
          // it can be added as a parameter in the future.
          bool incDest = dest ? true : false;
          volatile void *destAddr = dest ? dest : &Trash;
-         dmaErr = LPC_DMA_InitChannel(rxChan,
+         dmaErr = DMA_InitChannel(rxChan,
                                       (DMA_Address_T)&LPC_SSP0->DR, (DMA_Address_T)destAddr,
                                       DMA_PERIPH_SPI0, DMA_PERIPH_MEMORY, size,
                                       DMA_BURST_SIZE_1, DMA_BURST_SIZE_1,
@@ -437,7 +437,7 @@ SPI_Error_E LPC_SSP0_DMA_Transaction(const void *src, void *dest, size_t size, S
             break;
          }
 
-         dmaErr = LPC_DMA_FindFreeChannel(&txChan);
+         dmaErr = DMA_FindFreeChannel(&txChan);
          if(DMA_SUCCESS != dmaErr)
          {
             break;
@@ -445,7 +445,7 @@ SPI_Error_E LPC_SSP0_DMA_Transaction(const void *src, void *dest, size_t size, S
 
          bool incSrc = src ? true : false;
          volatile const void *srcAddr = src ? src : &Dummy;
-         dmaErr = LPC_DMA_InitChannel(txChan,
+         dmaErr = DMA_InitChannel(txChan,
                                       (DMA_Address_T)srcAddr, (DMA_Address_T)&LPC_SSP0->DR,
                                       DMA_PERIPH_MEMORY, DMA_PERIPH_SPI0, size,
                                       DMA_BURST_SIZE_1, DMA_BURST_SIZE_1,
@@ -460,13 +460,13 @@ SPI_Error_E LPC_SSP0_DMA_Transaction(const void *src, void *dest, size_t size, S
          SSP0_DMA_TransactionTxCallback = txCallback;
          SSP0_DMA_TransactionRxCallback = rxCallback;
 
-         dmaErr = LPC_DMA_BeginTransfer(txChan, &SSP0_DMA_TxCallback);
+         dmaErr = DMA_BeginTransfer(txChan, &SSP0_DMA_TxCallback);
          if(DMA_SUCCESS != dmaErr)
          {
             break;
          }
 
-         dmaErr = LPC_DMA_BeginTransfer(rxChan, &SSP0_DMA_RxCallback);
+         dmaErr = DMA_BeginTransfer(rxChan, &SSP0_DMA_RxCallback);
          if(DMA_SUCCESS != dmaErr)
          {
             break;

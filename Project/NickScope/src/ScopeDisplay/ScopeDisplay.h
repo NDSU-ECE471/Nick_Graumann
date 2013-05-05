@@ -2,9 +2,17 @@
 #define __SCOPE_DISPLAY_H__
 
 #include "FreeRTOS.h"
+#include "semphr.h"
+
 #include "LcdDisplay.h"
 #include "Types.h"
 
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// Global definitions
+//
+///////////////////////////////////////////////////////////////////////////////
 #define DISPLAY_BG_COLOR         LCD_COLOR_BLACK
 
 #define DISPLAY_TEXT_HEIGHT      7
@@ -38,13 +46,14 @@
 
 #define SCOPE_DISPLAY_TASK_NAME     (signed char *)"ScopeDisplay"
 #define SCOPE_DISPLAY_TASK_STACK    128
-#define SCOPE_DISPLAY_TASK_PRIORITY (tskIDLE_PRIORITY+2)
+#define SCOPE_DISPLAY_TASK_PRIORITY (configMAX_PRIORITIES-2)
 
 
-// todo: move me
-#define ADC_MAX_COUNTS           255
-
-
+///////////////////////////////////////////////////////////////////////////////
+//
+// Enumerations
+//
+///////////////////////////////////////////////////////////////////////////////
 typedef enum
 {
    SCOPE_DISPLAY_EVENT_UPDATE_TRACE = 0,
@@ -56,6 +65,11 @@ typedef enum
 } ScopeDisplayEventType_E;
 
 
+///////////////////////////////////////////////////////////////////////////////
+//
+// Structures
+//
+///////////////////////////////////////////////////////////////////////////////
 typedef struct
 {
    ScopeDisplayEventType_E type;
@@ -68,6 +82,7 @@ typedef struct
       {
          volatile AdcCounts_T *data;
          size_t length;
+         xSemaphoreHandle mutex;
       } AdcMemory;
 
       struct
@@ -85,6 +100,11 @@ typedef struct
 } ScopeDisplayEvent_T;
 
 
+///////////////////////////////////////////////////////////////////////////////
+//
+// Public functions
+//
+///////////////////////////////////////////////////////////////////////////////
 bool ScopeDisplayInit();
 void ScopeDisplayQueueEvent(ScopeDisplayEvent_T *event);
 

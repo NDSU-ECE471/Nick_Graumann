@@ -1,9 +1,4 @@
 #include <string.h>
-
-#ifdef USE_INTERNAL_ADC
-   #include "lpc17xx_adc.h"
-   #include "lpc17xx_pinsel.h"
-#endif
 #include <cr_section_macros.h>
 
 #include "FreeRTOS.h"
@@ -15,6 +10,11 @@
 #include "ScopeDisplay/ScopeDisplay.h"
 
 
+///////////////////////////////////////////////////////////////////////////////
+//
+// Local definitions
+//
+///////////////////////////////////////////////////////////////////////////////
 #define SPI_ADC_DEV        SPI_0
 #define SPI_ADC_PCLK_DIV   1
 #define SPI_ADC_BUS_DIV    2
@@ -23,6 +23,8 @@
 #define SPI_ADC_XFER_SIZE  14
 #define SPI_ADC_BIT_OFFSET 4
 #define SPI_ADC_BIT_MASK   0xFF
+
+xSemaphoreHandle AdcSampleMutex = NULL;
 
 volatile AdcCounts_T SampleBuffer[ADC_READER_BUF_LEN] __BSS(RamAHB32) __attribute__((aligned (256)));
 #define SAMPLE_BUFFER_LEN  (sizeof(SampleBuffer)/sizeof(SampleBuffer[0]));
@@ -38,6 +40,13 @@ static AdcReaderCommand_E State = ADC_READER_STOP;
 
 static SPI_ClkDiv_T ADC_SPI_BusClkDivVal = SPI_ADC_BUS_DIV;
 
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// Called once the ADC has finished gathering samples in burst mode.
+// Triggers a ScopeDisplay event to redraw the entire trace.
+//
+///////////////////////////////////////////////////////////////////////////////
 static void AdcCallback(SPI_Error_E err)
 {
    if(SPI_SUCCESS == err)
@@ -46,13 +55,24 @@ static void AdcCallback(SPI_Error_E err)
       displayEvent.type = SCOPE_DISPLAY_EVENT_DRAW_TRACE;
       displayEvent.AdcMemory.data = SampleBuffer;
       displayEvent.AdcMemory.length = ADC_READER_BUF_LEN;
+      displayEvent.AdcMemory.mutex = AdcSampleMutex;
       ScopeDisplayQueueEvent(&displayEvent);
    }
 
    State = ADC_READER_STOP;
+
+   signed portBASE_TYPE taskWoken = pdFALSE;
+   xSemaphoreGiveFromISR(AdcSampleMutex, &taskWoken);
+
+   portEND_SWITCHING_ISR(taskWoken);
 }
 
 
+///////////////////////////////////////////////////////////////////////////////
+//
+// See AdcReader.h
+//
+///////////////////////////////////////////////////////////////////////////////
 bool AdcReaderInit()
 {
    bool retVal = xTaskCreate(AdcReaderTask,
@@ -64,6 +84,9 @@ bool AdcReaderInit()
 
    eventQueue = xQueueCreate(ADC_READER_EVENT_QUEUE_SIZE, sizeof(AdcReaderCommand_T));
    retVal = retVal && eventQueue;
+
+   AdcSampleMutex = xSemaphoreCreateMutex();
+   retVal = retVal && AdcSampleMutex;
 
    retVal = retVal && (SPI_Init(SPI_ADC_DEV,
                                 SPI_ADC_PCLK_DIV,
@@ -80,12 +103,22 @@ bool AdcReaderInit()
 }
 
 
+///////////////////////////////////////////////////////////////////////////////
+//
+// See AdcReader.h
+//
+///////////////////////////////////////////////////////////////////////////////
 void AdcReaderQueueEvent(AdcReaderCommand_T *event)
 {
    xQueueSendToBack(eventQueue, event, 0);
 }
 
 
+///////////////////////////////////////////////////////////////////////////////
+//
+// See AdcReader.h
+//
+///////////////////////////////////////////////////////////////////////////////
 void AdcReaderGetSampleBuffer(volatile AdcCounts_T **bufPtr, size_t *length)
 {
    if(bufPtr)
@@ -100,19 +133,30 @@ void AdcReaderGetSampleBuffer(volatile AdcCounts_T **bufPtr, size_t *length)
 }
 
 
+///////////////////////////////////////////////////////////////////////////////
+//
+// See AdcReader.h
+//
+///////////////////////////////////////////////////////////////////////////////
 uint8_t AdcTrimSampleData(AdcCounts_T data)
 {
    return (uint8_t)((data >> SPI_ADC_BIT_OFFSET) & SPI_ADC_BIT_MASK);
 }
 
 
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// FreeRTOS task
+//
+///////////////////////////////////////////////////////////////////////////////
 static portTASK_FUNCTION(AdcReaderTask, pvParameters)
 {
    (void)pvParameters;
 
    AdcReaderCommand_T command;
    ScopeDisplayEvent_T displayEvent;
-   AdcCounts_T adcReading = -1;
+   AdcCounts_T adcReading;
    portTickType lastWakeTime = xTaskGetTickCount();
 
    while(1)
@@ -133,8 +177,8 @@ static portTASK_FUNCTION(AdcReaderTask, pvParameters)
 
       case ADC_READER_READ_SINGLE:
       case ADC_READER_READ_CONTINUOUS:
-         SPI_SingleTransaction(SPI_ADC_DEV, NULL, (void *)&SampleBuffer[0]);
-         adcReading = AdcTrimSampleData(SampleBuffer[0]);
+         SPI_SingleTransaction(SPI_ADC_DEV, NULL, (void *)&adcReading);
+         adcReading = AdcTrimSampleData(adcReading);
 
          if(ADC_READER_READ_CONTINUOUS == State)
          {
@@ -151,20 +195,25 @@ static portTASK_FUNCTION(AdcReaderTask, pvParameters)
          break;
 
       case ADC_READER_READ_BURST:
-         taskENTER_CRITICAL();
-         SPI_BeginDMA_Transaction(SPI_ADC_DEV, NULL, (void *)SampleBuffer, ADC_READER_BUF_LEN, NULL, &AdcCallback);
-         taskEXIT_CRITICAL();
-
-         State = ADC_READER_SAMPLING;
-
-         // The DMA operation should be complete long before this timeout.
-         vTaskDelay(ADC_READER_TASK_TIMEOUT_TICKS);
-
-         // Check if it's done. If not, don't know what happened, but for some reason we're not done....
-         // Just pretend we're finished so we don't get stuck in an infinte sampling state.
-         if(ADC_READER_SAMPLING == State)
+         if(xSemaphoreTake(AdcSampleMutex, ADC_SAMPLE_MUTEX_TIMEOUT))
          {
-            State = ADC_READER_STOP;
+            taskENTER_CRITICAL();
+            SPI_BeginDMA_Transaction(SPI_ADC_DEV, NULL, (void *)SampleBuffer, ADC_READER_BUF_LEN, NULL, &AdcCallback);
+            taskEXIT_CRITICAL();
+
+            State = ADC_READER_SAMPLING;
+
+            // The DMA operation should be complete long before this timeout.
+            vTaskDelay(ADC_READER_TASK_TIMEOUT_TICKS);
+
+            // Check if it's done. If not, don't know what happened, but for some reason we're not done....
+            // Just pretend we're finished so we don't get stuck in an infinte sampling state.
+            if(ADC_READER_SAMPLING == State)
+            {
+               State = ADC_READER_STOP;
+            }
+
+            // Do not give the sample mutex; it is given when the callback signals the transaction is complete.
          }
          break;
 

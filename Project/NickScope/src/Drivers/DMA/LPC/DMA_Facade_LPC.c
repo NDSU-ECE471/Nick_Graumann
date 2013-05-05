@@ -1,6 +1,6 @@
 #include <string.h>
 #include "LPC17xx.h"
-#include "DMA_LPC.h"
+#include "../DMA_Facade.h"
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -88,6 +88,7 @@ static const uint8_t DMA_PeripheralDestBits[] =
 #define DMA_TC_INT_BIT     (1<<15)
 #define DMA_CONFIG_EN_BIT  (1<<0)
 
+
 ///////////////////////////////////////////////////////////////////////////////
 //
 // Local variables
@@ -118,10 +119,10 @@ static DMA_Error_E VerifyDMA_Peripheral(DMA_Peripheral_E periph)
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// See DMA_LPC.h
+// See DMA_Facade.h
 //
 ///////////////////////////////////////////////////////////////////////////////
-DMA_Error_E LPC_DMA_Init()
+DMA_Error_E DMA_Init()
 {
    DMA_Error_E err = DMA_SUCCESS;
 
@@ -145,10 +146,10 @@ DMA_Error_E LPC_DMA_Init()
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// See DMA_LPC.h
+// See DMA_Facade.h
 //
 ///////////////////////////////////////////////////////////////////////////////
-DMA_Error_E LPC_DMA_InitChannel(DMA_Channel_T channel,
+DMA_Error_E DMA_InitChannel(DMA_Channel_T channel,
                                 DMA_Address_T srcAddr, DMA_Address_T destAddr,
                                 DMA_Peripheral_E srcPeriph, DMA_Peripheral_E destPeriph,
                                 DMA_TransferSize_T xferSize,
@@ -241,10 +242,10 @@ DMA_Error_E LPC_DMA_InitChannel(DMA_Channel_T channel,
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// See DMA_LPC.h
+// See DMA_Facade.h
 //
 ///////////////////////////////////////////////////////////////////////////////
-DMA_Error_E LPC_DMA_BeginTransfer(DMA_Channel_T channel, DMA_Callback_T callback)
+DMA_Error_E DMA_BeginTransfer(DMA_Channel_T channel, DMA_Callback_T callback)
 {
    DMA_Error_E err = DMA_SUCCESS;
 
@@ -270,10 +271,10 @@ DMA_Error_E LPC_DMA_BeginTransfer(DMA_Channel_T channel, DMA_Callback_T callback
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// See DMA_LPC.h
+// See DMA_Facade.h
 //
 ///////////////////////////////////////////////////////////////////////////////
-DMA_Error_E LPC_DMA_FindFreeChannel(DMA_Channel_T *channel)
+DMA_Error_E DMA_FindFreeChannel(DMA_Channel_T *channel)
 {
    DMA_Error_E err = DMA_NO_FREE_CHANNELS;
 

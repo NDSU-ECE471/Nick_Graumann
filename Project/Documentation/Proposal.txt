@@ -1,0 +1,5 @@
+For my ECE 471 project, I am interested in making a basic oscilloscope. The scope would likely feature 2 channels, each with a dedicated external ADC chip.
+
+For the ADC, I would use an external ADC chip for the SPI/I2C communication requirement as well as for performance reasons. One I had in mind is the ADCS7476AIMF from TI, which is a 12-bit SPI ADC which can sample at 1MSPS (much better than the onboard 200KSPS of the 1769).
+
+The output would be displayed on the screen, with user input coming in from the buttons on the dev board. I envision single as well as normal or auto trigger modes, selectable timebase and volts/div, and some simple math functions such as add or subtract. Additionally, I would add some measurement functions like measurement of peak voltage, frequency, etc.
