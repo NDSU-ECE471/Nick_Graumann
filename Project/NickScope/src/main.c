@@ -34,6 +34,8 @@ int main(void)
 
    // Error trap
    while(1);
+
+   return 0;
 }
 
 
@@ -46,12 +48,14 @@ void vApplicationIdleHook()
 
 void vApplicationStackOverflowHook()
 {
+   // Trap so we can attach with a debugger
    while(1);
 }
 
 
 void vApplicationMallocFailedHook()
 {
+   // Trap so we can attach with a debugger
    while(1);
 }
 

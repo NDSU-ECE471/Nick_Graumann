@@ -24,6 +24,9 @@
 #define SPI_ADC_BIT_OFFSET 4
 #define SPI_ADC_BIT_MASK   0xFF
 
+#define SPI_ADC_BUS_MIN_DIV   2
+#define SPI_ADC_BUS_MAX_DIV   8192
+
 xSemaphoreHandle AdcSampleMutex = NULL;
 
 volatile AdcCounts_T SampleBuffer[ADC_READER_BUF_LEN] __BSS(RamAHB32) __attribute__((aligned (256)));
@@ -39,6 +42,9 @@ static xQueueHandle eventQueue = NULL;
 static AdcReaderCommand_E State = ADC_READER_STOP;
 
 static SPI_ClkDiv_T ADC_SPI_BusClkDivVal = SPI_ADC_BUS_DIV;
+
+
+volatile bool triggered = false;
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -197,6 +203,7 @@ static portTASK_FUNCTION(AdcReaderTask, pvParameters)
       case ADC_READER_READ_BURST:
          if(xSemaphoreTake(AdcSampleMutex, ADC_SAMPLE_MUTEX_TIMEOUT))
          {
+            // DMA transaction setup occurs inside a critical section just in case someone else also wants to set one up too.
             taskENTER_CRITICAL();
             SPI_BeginDMA_Transaction(SPI_ADC_DEV, NULL, (void *)SampleBuffer, ADC_READER_BUF_LEN, NULL, &AdcCallback);
             taskEXIT_CRITICAL();
@@ -218,25 +225,27 @@ static portTASK_FUNCTION(AdcReaderTask, pvParameters)
          break;
 
       case ADC_READER_INC_SAMPLERATE:
-         if(ADC_SPI_BusClkDivVal > 2)
+         if(ADC_SPI_BusClkDivVal > SPI_ADC_BUS_MIN_DIV)
          {
-            ADC_SPI_BusClkDivVal /= 2;
+            // Single-instruction divide by 2 with bit shift
+            ADC_SPI_BusClkDivVal >>= 1;
          }
 
          SPI_SetBusClkDiv(SPI_ADC_DEV, ADC_SPI_BusClkDivVal);
 
-         State = ADC_READER_READ_BURST;
+         State = ADC_READER_STOP;
          break;
 
       case ADC_READER_DEC_SAMPLERATE:
-         if(ADC_SPI_BusClkDivVal < 8192)
+         if(ADC_SPI_BusClkDivVal < SPI_ADC_BUS_MAX_DIV)
          {
-            ADC_SPI_BusClkDivVal *= 2;
+            // Single-instruction multiply by 2 with bit shift
+            ADC_SPI_BusClkDivVal <<= 1;
          }
 
          SPI_SetBusClkDiv(SPI_ADC_DEV, ADC_SPI_BusClkDivVal);
 
-         State = ADC_READER_READ_BURST;
+         State = ADC_READER_STOP;
          break;
       }
    }

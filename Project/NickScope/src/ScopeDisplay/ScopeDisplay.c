@@ -295,7 +295,7 @@ static portTASK_FUNCTION(ScopeDisplayTask, pvParameters)
          case SCOPE_DISPLAY_EVENT_UPDATE_TRACE:
             traceLevelPixels = AdcReadingToPixels(event.adcReading);
 
-            if(prevTraceLevelPixels == TRACE_LEVEL_INVALID)
+            if(TRACE_LEVEL_INVALID == prevTraceLevelPixels)
             {
                prevTraceLevelPixels = traceLevelPixels;
             }
