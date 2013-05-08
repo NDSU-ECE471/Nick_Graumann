@@ -25,7 +25,7 @@
 #define SPI_ADC_BIT_MASK   0xFF
 
 #define SPI_ADC_BUS_MIN_DIV   2
-#define SPI_ADC_BUS_MAX_DIV   8192
+#define SPI_ADC_BUS_MAX_DIV   16384
 
 xSemaphoreHandle AdcSampleMutex = NULL;
 
@@ -35,7 +35,7 @@ volatile AdcCounts_T SampleBuffer[ADC_READER_BUF_LEN] __BSS(RamAHB32) __attribut
 
 static portTASK_FUNCTION(AdcReaderTask, pvParameters);
 
-#define ADC_READER_TASK_TIMEOUT_TICKS  10
+#define ADC_READER_TASK_TIMEOUT_TICKS  1000
 
 #define ADC_READER_EVENT_QUEUE_SIZE    10
 static xQueueHandle eventQueue = NULL;
@@ -229,9 +229,8 @@ static portTASK_FUNCTION(AdcReaderTask, pvParameters)
          {
             // Single-instruction divide by 2 with bit shift
             ADC_SPI_BusClkDivVal >>= 1;
+            SPI_SetBusClkDiv(SPI_ADC_DEV, ADC_SPI_BusClkDivVal);
          }
-
-         SPI_SetBusClkDiv(SPI_ADC_DEV, ADC_SPI_BusClkDivVal);
 
          State = ADC_READER_STOP;
          break;
@@ -241,13 +240,15 @@ static portTASK_FUNCTION(AdcReaderTask, pvParameters)
          {
             // Single-instruction multiply by 2 with bit shift
             ADC_SPI_BusClkDivVal <<= 1;
+            SPI_SetBusClkDiv(SPI_ADC_DEV, ADC_SPI_BusClkDivVal);
          }
-
-         SPI_SetBusClkDiv(SPI_ADC_DEV, ADC_SPI_BusClkDivVal);
 
          State = ADC_READER_STOP;
          break;
       }
+
+      // Allow other tasks to run if necessary
+      portYIELD();
    }
 }
 

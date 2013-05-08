@@ -31,8 +31,8 @@ typedef enum
 
 typedef enum
 {
-   TIMEBASE_uS = 0,
-   TIMEBASE_mS,
+   TIMEBASE_US = 0,
+   TIMEBASE_MS,
    TIMEBASE_S,
    NUM_TIMEBASES
 } TimebaseUnits_E;

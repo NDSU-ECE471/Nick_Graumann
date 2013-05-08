@@ -23,7 +23,7 @@ static portTASK_FUNCTION(ScopeDisplayTask, pvParameters);
 
 
 #define MIN_TIMEBASE_US_INDEX 2
-#define MAX_TIMEBASE_S_INDEX  0
+#define MAX_TIMEBASE_MS_INDEX 6
 
 static const uint32_t TIMEBASE_INTERVALS[] =
 {
@@ -42,7 +42,7 @@ static const uint32_t TIMEBASE_INTERVALS[] =
 // Initial timebase is the minimum timebase we can have, defined by the minimum allowable
 // timebase in the uS range.
 static uint32_t timebaseIndex = MIN_TIMEBASE_US_INDEX;
-static TimebaseUnits_E timebaseUnits = TIMEBASE_uS;
+static TimebaseUnits_E timebaseUnits = TIMEBASE_US;
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -155,11 +155,11 @@ static void DrawTimebase(TimebaseValue_T time, TimebaseUnits_E units)
    char buffer[16];
    switch(units)
    {
-   case TIMEBASE_uS:
+   case TIMEBASE_US:
       snprintf(buffer, sizeof(buffer), "%4uus/div", time);
       break;
 
-   case TIMEBASE_mS:
+   case TIMEBASE_MS:
       snprintf(buffer, sizeof(buffer), "%4ums/div", time);
       break;
 
@@ -326,7 +326,7 @@ static portTASK_FUNCTION(ScopeDisplayTask, pvParameters)
             break;
 
          case SCOPE_DISPLAY_EVENT_TIMEBASE_INC:
-            if(!(TIMEBASE_S == timebaseUnits && MAX_TIMEBASE_S_INDEX == timebaseIndex))
+            if(!(TIMEBASE_MS == timebaseUnits && MAX_TIMEBASE_MS_INDEX == timebaseIndex))
             {
                if(timebaseIndex < TIMEBASE_INTERVALS_SIZE-1)
                {
@@ -344,7 +344,7 @@ static portTASK_FUNCTION(ScopeDisplayTask, pvParameters)
 
          case SCOPE_DISPLAY_EVENT_TIMEBASE_DEC:
             // Make sure we can still zoom in
-            if(!(TIMEBASE_uS == timebaseUnits && MIN_TIMEBASE_US_INDEX == timebaseIndex))
+            if(!(TIMEBASE_US == timebaseUnits && MIN_TIMEBASE_US_INDEX == timebaseIndex))
             {
                if(timebaseIndex > 0)
                {
